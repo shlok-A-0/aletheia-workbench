@@ -721,7 +721,8 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
       for (let f = 0; f < numFlops; f++) {
         const qBit = ((stateCode >> (numFlops - 1 - f)) & 1) as 0 | 1;
         simVals[flops[f].q] = qBit;
-        if (flops[f].qn) simVals[flops[f].qn] = qBit === 1 ? 0 : 1;
+        const qn = flops[f].qn;
+        if (qn) simVals[qn] = qBit === 1 ? 0 : 1;
       }
 
       // Evaluate combinational nets
