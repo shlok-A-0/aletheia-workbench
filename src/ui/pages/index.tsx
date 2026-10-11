@@ -5,14 +5,8 @@ export { InputPage } from './InputPage';
 export { TruthTablePage } from './TruthTablePage';
 export { KMapPage } from './KMapPage';
 export { CircuitPage } from './CircuitPage';
+export { SequentialPage } from './SequentialPage';
 
-export const SequentialPage: React.FC = () => (
-  <PlaceholderPage
-    title="Sequential Logic &amp; FSM Synthesis"
-    phase="Phase 4"
-    description="Moore/Mealy state tables, state reduction, flip-flop excitation equations (D, T, JK, SR), and state transition graphs."
-  />
-);
 
 export const TimingPage: React.FC = () => (
   <PlaceholderPage

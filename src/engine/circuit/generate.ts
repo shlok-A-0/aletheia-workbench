@@ -231,6 +231,25 @@ export function toNandOnly(netlist: Netlist): Netlist {
         });
         break;
 
+      case 'BUF': {
+        const w = newNet('buf_nand');
+        newNodes.push({
+          kind: 'gate',
+          id: newGateId('NAND'),
+          type: 'NAND',
+          inputs: [resolvedInputs[0], resolvedInputs[0]],
+          output: w,
+        });
+        newNodes.push({
+          kind: 'gate',
+          id: newGateId('NAND'),
+          type: 'NAND',
+          inputs: [w, w],
+          output: g.output,
+        });
+        break;
+      }
+
       case 'NOT': {
         // NOT(A) -> NAND(A, A)
         newNodes.push({
@@ -439,6 +458,25 @@ export function toNorOnly(netlist: Netlist): Netlist {
           output: g.output,
         });
         break;
+
+      case 'BUF': {
+        const w = newNet('buf_nor');
+        newNodes.push({
+          kind: 'gate',
+          id: newGateId('NOR'),
+          type: 'NOR',
+          inputs: [resolvedInputs[0], resolvedInputs[0]],
+          output: w,
+        });
+        newNodes.push({
+          kind: 'gate',
+          id: newGateId('NOR'),
+          type: 'NOR',
+          inputs: [w, w],
+          output: g.output,
+        });
+        break;
+      }
 
       case 'NOT': {
         // NOT(A) -> NOR(A, A)
