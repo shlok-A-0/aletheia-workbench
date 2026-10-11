@@ -103,16 +103,19 @@ const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
 
   // Circular layout coordinates
   const positions = useMemo(() => {
-    const coords: Record<string, { x: number; y: number }> = {};
     const count = nodes.length;
-    nodes.forEach((n, idx) => {
-      const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
-      coords[n.id] = {
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
-      };
-    });
-    return coords;
+    return Object.fromEntries(
+      nodes.map((n, idx) => {
+        const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
+        return [
+          n.id,
+          {
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle),
+          },
+        ];
+      })
+    );
   }, [nodes]);
 
   return (

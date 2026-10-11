@@ -233,20 +233,10 @@ export function toNandOnly(netlist: Netlist): Netlist {
 
       case 'BUF': {
         const w = newNet('buf_nand');
-        newNodes.push({
-          kind: 'gate',
-          id: newGateId('NAND'),
-          type: 'NAND',
-          inputs: [resolvedInputs[0], resolvedInputs[0]],
-          output: w,
-        });
-        newNodes.push({
-          kind: 'gate',
-          id: newGateId('NAND'),
-          type: 'NAND',
-          inputs: [w, w],
-          output: g.output,
-        });
+        newNodes.push(
+          { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [resolvedInputs[0], resolvedInputs[0]], output: w },
+          { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [w, w], output: g.output }
+        );
         break;
       }
 
@@ -461,20 +451,10 @@ export function toNorOnly(netlist: Netlist): Netlist {
 
       case 'BUF': {
         const w = newNet('buf_nor');
-        newNodes.push({
-          kind: 'gate',
-          id: newGateId('NOR'),
-          type: 'NOR',
-          inputs: [resolvedInputs[0], resolvedInputs[0]],
-          output: w,
-        });
-        newNodes.push({
-          kind: 'gate',
-          id: newGateId('NOR'),
-          type: 'NOR',
-          inputs: [w, w],
-          output: g.output,
-        });
+        newNodes.push(
+          { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [resolvedInputs[0], resolvedInputs[0]], output: w },
+          { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [w, w], output: g.output }
+        );
         break;
       }
 

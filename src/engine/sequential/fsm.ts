@@ -345,11 +345,9 @@ export function assignStates(
   const codes: Record<string, string> = {};
 
   if (strategy === 'one-hot') {
-    for (let i = 0; i < numStates; i++) {
-      const codeArr = new Array(numStates).fill('0');
-      codeArr[numStates - 1 - i] = '1';
-      codes[st.states[i]] = codeArr.join('');
-    }
+    st.states.forEach((s, i) => {
+      codes[s] = '0'.repeat(numStates - 1 - i) + '1' + '0'.repeat(i);
+    });
     return { codes, flops: numStates };
   }
 
@@ -702,10 +700,7 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
   }
 
   // Enumerate state transitions
-  const stateNames: string[] = [];
-  for (let c = 0; c < numStates; c++) {
-    stateNames.push(`S${c}`);
-  }
+  const stateNames = Array.from({ length: numStates }, (_, c) => `S${c}`);
 
   const rows: StateTable['rows'] = [];
   const reachable = new Set<string>();
@@ -782,10 +777,7 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
     }
   }
 
-  const unusedStates: string[] = [];
-  for (const s of stateNames) {
-    if (!reachable.has(s)) unusedStates.push(s);
-  }
+  const unusedStates = stateNames.filter((s) => !reachable.has(s));
 
   // Lock-up check: does any state in the reachable set form an inescapable single-state trap
   // with no way to progress, or have non-deterministic/deadlock transitions?

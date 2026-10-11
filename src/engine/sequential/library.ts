@@ -18,6 +18,8 @@ function sId(t = 'node'): string {
   return `${t}_${++seqIdCounter}`;
 }
 
+const qOutputs = (bits: number): string[] => Array.from({ length: bits }, (_, i) => `Q${bits - 1 - i}`);
+
 /**
  * Synchronous Binary Counter (2, 3, or 4 bits).
  * Generates an up or up/down counter using T or JK flip-flops.
@@ -28,8 +30,7 @@ export function syncCounter(
   ffType: 'T' | 'JK' = 'T'
 ): Netlist {
   const inputs: string[] = ['CLK'];
-  const outputs: string[] = [];
-  for (let i = bits - 1; i >= 0; i--) outputs.push(`Q${i}`);
+  const outputs = qOutputs(bits);
 
   const nodes: Node[] = [];
   const const1 = sNet('const_1');
@@ -126,8 +127,7 @@ export function syncCounter(
 export function modNCounter(n: number): Netlist {
   const bits = Math.ceil(Math.log2(n));
   const inputs: string[] = ['CLK'];
-  const outputs: string[] = [];
-  for (let i = bits - 1; i >= 0; i--) outputs.push(`Q${i}`);
+  const outputs = qOutputs(bits);
 
   const nodes: Node[] = [];
   const const1 = sNet('const_1');
@@ -204,8 +204,7 @@ export function modNCounter(n: number): Netlist {
  */
 export function ringCounter(bits = 4): Netlist {
   const inputs = ['CLK'];
-  const outputs: string[] = [];
-  for (let i = bits - 1; i >= 0; i--) outputs.push(`Q${i}`);
+  const outputs = qOutputs(bits);
 
   const nodes: Node[] = [];
 
@@ -241,8 +240,7 @@ export function ringCounter(bits = 4): Netlist {
  */
 export function johnsonCounter(bits = 3): Netlist {
   const inputs = ['CLK'];
-  const outputs: string[] = [];
-  for (let i = bits - 1; i >= 0; i--) outputs.push(`Q${i}`);
+  const outputs = qOutputs(bits);
 
   const nodes: Node[] = [];
 

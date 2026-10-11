@@ -37,77 +37,51 @@ export function characteristicEquation(type: FFType): string {
 /**
  * Returns the complete characteristic table for a flip-flop type.
  */
-export function characteristicTable(type: FFType): CharacteristicRow[] {
-  const rows: CharacteristicRow[] = [];
+const INPUT_COMBOS: Record<FFType, Record<string, 0 | 1>[]> = {
+  SR: [{ S: 0, R: 0 }, { S: 0, R: 1 }, { S: 1, R: 0 }, { S: 1, R: 1 }],
+  D: [{ D: 0 }, { D: 1 }],
+  JK: [{ J: 0, K: 0 }, { J: 0, K: 1 }, { J: 1, K: 0 }, { J: 1, K: 1 }],
+  T: [{ T: 0 }, { T: 1 }],
+};
 
+/**
+ * Evaluates the next output state Q+ for a flip-flop given current Q and synchronous inputs.
+ */
+export function nextQ(
+  type: FFType,
+  q: 0 | 1,
+  inputs: Record<string, 0 | 1>
+): 0 | 1 | 'x' {
   switch (type) {
     case 'SR': {
-      // Inputs S, R (2 bits) and current Q (1 bit) -> 8 rows
-      for (let s of [0, 1] as (0 | 1)[]) {
-        for (let r of [0, 1] as (0 | 1)[]) {
-          for (let q of [0, 1] as (0 | 1)[]) {
-            let nextQ: 0 | 1 | 'x';
-            if (s === 1 && r === 1) {
-              nextQ = 'x'; // Invalid state
-            } else if (s === 1 && r === 0) {
-              nextQ = 1;
-            } else if (s === 0 && r === 1) {
-              nextQ = 0;
-            } else {
-              nextQ = q; // Hold
-            }
-            rows.push({ inputs: { S: s, R: r }, q, nextQ });
-          }
-        }
-      }
-      break;
+      const s = inputs.S ?? inputs.s ?? 0;
+      const r = inputs.R ?? inputs.r ?? 0;
+      if (s === 1 && r === 1) return 'x';
+      if (s === 1) return 1;
+      if (r === 1) return 0;
+      return q;
     }
-
-    case 'D': {
-      // Input D and current Q -> 4 rows
-      for (let d of [0, 1] as (0 | 1)[]) {
-        for (let q of [0, 1] as (0 | 1)[]) {
-          rows.push({ inputs: { D: d }, q, nextQ: d });
-        }
-      }
-      break;
-    }
-
+    case 'D':
+      return inputs.D ?? inputs.d ?? 0;
     case 'JK': {
-      // Inputs J, K and current Q -> 8 rows
-      for (let j of [0, 1] as (0 | 1)[]) {
-        for (let k of [0, 1] as (0 | 1)[]) {
-          for (let q of [0, 1] as (0 | 1)[]) {
-            let nextQ: 0 | 1;
-            if (j === 0 && k === 0) {
-              nextQ = q;
-            } else if (j === 0 && k === 1) {
-              nextQ = 0;
-            } else if (j === 1 && k === 0) {
-              nextQ = 1;
-            } else {
-              nextQ = q === 1 ? 0 : 1; // Toggle
-            }
-            rows.push({ inputs: { J: j, K: k }, q, nextQ });
-          }
-        }
-      }
-      break;
+      const j = inputs.J ?? inputs.j ?? 0;
+      const k = inputs.K ?? inputs.k ?? 0;
+      return ((j & (1 - q)) | ((1 - k) & q)) as 0 | 1;
     }
-
     case 'T': {
-      // Input T and current Q -> 4 rows
-      for (let t of [0, 1] as (0 | 1)[]) {
-        for (let q of [0, 1] as (0 | 1)[]) {
-          const nextQ = (t ^ q) as 0 | 1;
-          rows.push({ inputs: { T: t }, q, nextQ });
-        }
-      }
-      break;
+      const t = inputs.T ?? inputs.t ?? 0;
+      return (t ^ q) as 0 | 1;
     }
   }
+}
 
-  return rows;
+/**
+ * Returns the complete characteristic table for a flip-flop type.
+ */
+export function characteristicTable(type: FFType): CharacteristicRow[] {
+  return INPUT_COMBOS[type].flatMap((inputs) =>
+    ([0, 1] as const).map((q) => ({ inputs, q, nextQ: nextQ(type, q, inputs) }))
+  );
 }
 
 /**
@@ -146,41 +120,5 @@ export function excitationTable(type: FFType): ExcitationRow[] {
         { q: 1, nextQ: 0, inputs: { T: 1 } },
         { q: 1, nextQ: 1, inputs: { T: 0 } },
       ];
-  }
-}
-
-/**
- * Evaluates the next output state Q+ for a flip-flop given current Q and synchronous inputs.
- */
-export function nextQ(
-  type: FFType,
-  q: 0 | 1,
-  inputs: Record<string, 0 | 1>
-): 0 | 1 | 'x' {
-  switch (type) {
-    case 'SR': {
-      const s = inputs.S ?? inputs.s ?? 0;
-      const r = inputs.R ?? inputs.r ?? 0;
-      if (s === 1 && r === 1) return 'x';
-      if (s === 1) return 1;
-      if (r === 1) return 0;
-      return q;
-    }
-    case 'D': {
-      const d = inputs.D ?? inputs.d ?? 0;
-      return d;
-    }
-    case 'JK': {
-      const j = inputs.J ?? inputs.j ?? 0;
-      const k = inputs.K ?? inputs.k ?? 0;
-      if (j === 0 && k === 0) return q;
-      if (j === 0 && k === 1) return 0;
-      if (j === 1 && k === 0) return 1;
-      return q === 1 ? 0 : 1;
-    }
-    case 'T': {
-      const t = inputs.T ?? inputs.t ?? 0;
-      return (t ^ q) as 0 | 1;
-    }
   }
 }

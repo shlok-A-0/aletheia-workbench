@@ -29,6 +29,27 @@ export interface RunSequenceResult {
  * 3. Updates all flip-flops simultaneously.
  * 4. Re-evaluates combinational logic with the new flip-flop outputs.
  */
+function applyFlopOutputs(
+  flops: FlipFlop[],
+  state: Record<NetId, 0 | 1>,
+  inputs: Record<NetId, 0 | 1>
+): Record<NetId, 0 | 1> {
+  const nets: Record<NetId, 0 | 1> = { ...inputs };
+  for (const ff of flops) {
+    const qVal = state[ff.q] ?? (ff.init ?? 0);
+    nets[ff.q] = qVal;
+    if (ff.qn) nets[ff.qn] = (1 - qVal) as 0 | 1;
+  }
+  return nets;
+}
+
+/**
+ * Executes a single active clock edge on a sequential netlist.
+ * 1. Evaluates all combinational signals before the clock edge.
+ * 2. Samples all flip-flop synchronous inputs simultaneously (no internal race condition).
+ * 3. Updates all flip-flops simultaneously.
+ * 4. Re-evaluates combinational logic with the new flip-flop outputs.
+ */
 export function stepClock(
   netlist: Netlist,
   currentState: Record<NetId, 0 | 1>,
@@ -37,14 +58,7 @@ export function stepClock(
   const flops = netlist.nodes.filter((n) => n.kind === 'ff') as FlipFlop[];
 
   // 1. Build initial network state with current FF outputs + inputs
-  const preEdgeValues: Record<NetId, 0 | 1> = { ...inputs };
-  for (const ff of flops) {
-    const qVal = currentState[ff.q] ?? (ff.init ?? 0);
-    preEdgeValues[ff.q] = qVal;
-    if (ff.qn) {
-      preEdgeValues[ff.qn] = qVal === 1 ? 0 : 1;
-    }
-  }
+  const preEdgeValues = applyFlopOutputs(flops, currentState, inputs);
 
   // Evaluate all combinational signals prior to clock edge
   const evaluatedPreEdge = evaluate(netlist, preEdgeValues);
@@ -88,14 +102,7 @@ export function stepClock(
   }
 
   // 3. Update network values with the new flip-flop outputs
-  const postEdgeValues: Record<NetId, 0 | 1> = { ...inputs };
-  for (const ff of flops) {
-    const nq = nextState[ff.q];
-    postEdgeValues[ff.q] = nq;
-    if (ff.qn) {
-      postEdgeValues[ff.qn] = nq === 1 ? 0 : 1;
-    }
-  }
+  const postEdgeValues = applyFlopOutputs(flops, nextState, inputs);
 
   // 4. Re-evaluate combinational outputs after flip-flops update
   const finalNets = evaluate(netlist, postEdgeValues);
@@ -149,13 +156,7 @@ export function runSequence(
 
   // Initial step before clock pulses
   if (inputSequence.length > 0) {
-    const initialInputs = inputSequence[0];
-    const initialNets = { ...initialInputs };
-    for (const ff of flops) {
-      initialNets[ff.q] = currentState[ff.q];
-      if (ff.qn) initialNets[ff.qn] = currentState[ff.q] === 1 ? 0 : 1;
-    }
-    const evaluatedInitial = evaluate(netlist, initialNets);
+    const evaluatedInitial = evaluate(netlist, applyFlopOutputs(flops, currentState, inputSequence[0]));
     recordTransitions(evaluatedInitial);
   }
 
@@ -163,12 +164,7 @@ export function runSequence(
     const inputVec = inputSequence[tick];
 
     // For Mealy machines: check outputs with new inputs BEFORE active clock edge
-    const midStepNets: Record<NetId, 0 | 1> = { ...inputVec };
-    for (const ff of flops) {
-      midStepNets[ff.q] = currentState[ff.q];
-      if (ff.qn) midStepNets[ff.qn] = currentState[ff.q] === 1 ? 0 : 1;
-    }
-    const preEdgeEvaluated = evaluate(netlist, midStepNets);
+    const preEdgeEvaluated = evaluate(netlist, applyFlopOutputs(flops, currentState, inputVec));
     const preOutputs: Record<NetId, 0 | 1> = {};
     for (const outNet of netlist.outputs) {
       preOutputs[outNet] = preEdgeEvaluated[outNet] ?? 0;
