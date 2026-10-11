@@ -6,3 +6,5 @@
 export * from './types';
 export * from './boolean';
 export * from './minimize';
+export * from './circuit';
+

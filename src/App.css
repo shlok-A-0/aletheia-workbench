@@ -1463,4 +1463,356 @@
   font-size: 0.95rem;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Circuit Synthesis & Schematic Page
+   ───────────────────────────────────────────────────────────── */
+
+.circuit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.circuit-variant-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.btn-variant {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-variant:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-variant.active {
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.15), rgba(99, 102, 241, 0.15));
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 210, 255, 0.3);
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.15);
+}
+
+.btn-variant.disabled, .btn-variant:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.circuit-empty-card {
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.circuit-stats-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.stat-chip .stat-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.stat-chip .stat-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.type-chip {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.type-chip .stat-label {
+  color: var(--accent-indigo);
+}
+
+.type-chip .stat-value {
+  color: #a5b4fc;
+}
+
+.variant-chip {
+  background: rgba(0, 210, 255, 0.08);
+  border-color: rgba(0, 210, 255, 0.2);
+}
+
+.variant-chip .stat-label {
+  color: var(--accent-cyan);
+}
+
+.variant-chip .stat-value {
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.circuit-input-switches {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.switch-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+
+.input-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.input-switch:hover {
+  transform: translateY(-1px);
+}
+
+.input-switch.on {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.input-switch.on .switch-name {
+  color: #a7f3d0;
+}
+
+.input-switch.on .switch-val {
+  background: var(--accent-emerald);
+  color: #000;
+  font-weight: 800;
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.input-switch.off {
+  border-color: rgba(100, 116, 139, 0.3);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.input-switch.off .switch-name {
+  color: var(--text-muted);
+}
+
+.input-switch.off .switch-val {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.output-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.output-indicator.high {
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid rgba(0, 210, 255, 0.4);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+}
+
+.output-indicator.low {
+  background: rgba(100, 116, 139, 0.12);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  color: var(--text-muted);
+}
+
+.output-indicator .out-label {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.output-indicator .out-val {
+  font-size: 1rem;
+}
+
+.circuit-schematic-card {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  margin-bottom: 20px;
+}
+
+.schematic-viewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 640px;
+  padding: 24px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.circuit-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.circuit-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.btn-verify {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(0, 210, 255, 0.2));
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--accent-emerald);
+}
+
+.btn-verify:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(0, 210, 255, 0.3));
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-sim {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #c084fc;
+}
+
+.btn-sim:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+}
+
+.verify-badge {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.verify-badge.pass {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--accent-emerald);
+}
+
+.verify-badge.fail {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+/* MSI Blocks Tab */
+.blocks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.block-selector-card {
+  padding: 20px;
+}
+
+.block-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.block-chip {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.block-chip:hover {
+  border-color: rgba(0, 210, 255, 0.3);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.block-chip.active {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 210, 255, 0.1);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.15);
+}
+
+
 
