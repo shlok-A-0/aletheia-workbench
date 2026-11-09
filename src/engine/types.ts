@@ -1,7 +1,5 @@
 /**
- * LDAM Project — Core Data Contracts
- * Every phase reads/writes these types. Do not rename or remove any field.
- * You may add fields, but do not create competing types.
+ * Aletheia core data contracts.
  */
 
 // ─── Identifiers ────────────────────────────────────────────────────────────
@@ -236,9 +234,9 @@ export interface CostReport {
 
 /** Estimated power consumption report. */
 export interface PowerReport {
-  staticW: number;
+  staticW: number | undefined;
   dynamicW: number;
-  totalW: number;
+  totalW: number | undefined;
   transistors: number;
   perNet: { net: string; alpha: number; capF: number; dynW: number }[];
   assumptions: { vcc: number; freqHz: number; defaultCapF: number };
@@ -252,6 +250,8 @@ export interface FaultReport {
   coverage: number;
   minimalTestSet: number[][];
   table: { net: string; stuckAt: 0 | 1; detectedBy: number[] }[];
+  /** Test vectors in netlist.inputs order, retained so the minimal set is interpretable. */
+  testVectors?: (0 | 1)[][];
 }
 
 // ─── AI Chatbot Context ───────────────────────────────────────────────────────

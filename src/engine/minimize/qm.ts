@@ -1,5 +1,5 @@
 /**
- * LDAM Minimization Engine — Quine–McCluskey Algorithm
+ * Aletheia Minimization Engine — Quine–McCluskey Algorithm
  * Deterministic tabular logic minimization with Petrick's method,
  * row/column dominance reduction, essential prime implicant extraction,
  * and pedagogical Step[] generation.

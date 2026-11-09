@@ -36,6 +36,14 @@ function generateRandomExpr(vars: string[], depth = 3): string {
 }
 
 describe('Phase 3 — Circuit Engine Golden Tests', () => {
+  it('generates deterministic net names independent of intervening calls', () => {
+    const expr = parseExpr("A'B + C");
+    const first = exprToNetlist(expr);
+    bcdTo7Seg();
+    mux(2);
+    expect(exprToNetlist(expr)).toEqual(first);
+  });
+
   // Golden Test 1: exprToNetlist(parse("A'B + C")) verifies against its truth table; 30 random expressions (n=3,4)
   it("Golden Test 1: exprToNetlist for A'B + C and 30 random expressions", () => {
     const expr1 = parseExpr("A'B + C");
@@ -337,6 +345,133 @@ describe('Phase 3 — Circuit Engine Golden Tests', () => {
     const tt = truthTableOfNetlist(nl, ['A', 'B']);
     expect(tt.rows.map((r) => r.out)).toEqual([0, 1, 1, 0]);
   });
-});
 
+  it('Item 2: BCD to 7-segment decoder matches exact digits 0-9 and has reduced gate count', () => {
+    const bcd = bcdTo7Seg();
+    const OLD_MINTERM_GATE_COUNT = 59;
+    const gateCount = bcd.nodes.filter((n) => n.kind === 'gate').length;
+    expect(gateCount).toBeLessThan(OLD_MINTERM_GATE_COUNT);
+
+    const expectedDigits: Record<number, string> = {
+      0: 'abcdef',
+      1: 'bc',
+      2: 'abdeg',
+      3: 'abcdg',
+      4: 'bcfg',
+      5: 'acdfg',
+      6: 'acdefg',
+      7: 'abc',
+      8: 'abcdefg',
+      9: 'abcdfg',
+    };
+
+    const segments = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const;
+
+    for (let digit = 0; digit <= 9; digit++) {
+      const b3 = ((digit >> 3) & 1) as 0 | 1;
+      const b2 = ((digit >> 2) & 1) as 0 | 1;
+      const b1 = ((digit >> 1) & 1) as 0 | 1;
+      const b0 = (digit & 1) as 0 | 1;
+
+      const res = evaluate(bcd, { B3: b3, B2: b2, B1: b1, B0: b0 });
+      const activeSegs = segments.filter((s) => res[s] === 1).join('');
+      expect(activeSegs).toBe(expectedDigits[digit]);
+    }
+  });
+
+  it('Item 3: NAND and NOR conversion handles n-input XOR/XNOR and validates node kinds', () => {
+    // 1. 3-input XOR Netlist
+    const xor3Netlist: Netlist = {
+      name: 'xor3',
+      inputs: ['A', 'B', 'C'],
+      outputs: ['Y'],
+      nodes: [
+        { kind: 'gate', id: 'g_xor3', type: 'XOR', inputs: ['A', 'B', 'C'], output: 'Y' },
+      ],
+    };
+    const xor3Expr = parseExpr('(A ^ B) ^ C');
+    const xor3TT = truthTableFromExpr(xor3Expr, ['A', 'B', 'C']);
+
+    const xor3Nand = toNandOnly(xor3Netlist);
+    expect(xor3Nand.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NAND')).toBe(true);
+    expect(verify(xor3Nand, xor3TT).ok).toBe(true);
+
+    const xor3Nor = toNorOnly(xor3Netlist);
+    expect(xor3Nor.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NOR')).toBe(true);
+    expect(verify(xor3Nor, xor3TT).ok).toBe(true);
+
+    // 2. 4-input XNOR Netlist
+    const xnor4Netlist: Netlist = {
+      name: 'xnor4',
+      inputs: ['A', 'B', 'C', 'D'],
+      outputs: ['Y'],
+      nodes: [
+        { kind: 'gate', id: 'g_xnor4', type: 'XNOR', inputs: ['A', 'B', 'C', 'D'], output: 'Y' },
+      ],
+    };
+    const xnor4Expr = parseExpr('!(((A ^ B) ^ C) ^ D)');
+    const xnor4TT = truthTableFromExpr(xnor4Expr, ['A', 'B', 'C', 'D']);
+
+    const xnor4Nand = toNandOnly(xnor4Netlist);
+    expect(xnor4Nand.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NAND')).toBe(true);
+    expect(verify(xnor4Nand, xnor4TT).ok).toBe(true);
+
+    const xnor4Nor = toNorOnly(xnor4Netlist);
+    expect(xnor4Nor.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NOR')).toBe(true);
+    expect(verify(xnor4Nor, xnor4TT).ok).toBe(true);
+
+    // 3. Random expressions with ^ and ~^
+    for (const exprStr of ['(A ^ B) * C', 'A ~^ (B + C)', '(A ^ B) ^ (C ^ D)']) {
+      const parsed = parseExpr(exprStr);
+      const vars = ['A', 'B', 'C', 'D'].slice(0, exprStr.includes('D') ? 4 : 3);
+      const tt = truthTableFromExpr(parsed, vars);
+      const base = exprToNetlist(parsed);
+
+      const nandNet = toNandOnly(base);
+      expect(nandNet.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NAND')).toBe(true);
+      expect(verify(nandNet, tt).ok).toBe(true);
+
+      const norNet = toNorOnly(base);
+      expect(norNet.nodes.filter((n) => n.kind === 'gate').every((g) => (g as Gate).type === 'NOR')).toBe(true);
+      expect(verify(norNet, tt).ok).toBe(true);
+    }
+
+    // 4. Unsupported node kinds throw clear Error
+    const invalidNetlist: Netlist = {
+      name: 'bad_node',
+      inputs: ['A'],
+      outputs: ['Y'],
+      nodes: [
+        { kind: 'block' as any, id: 'blk1', type: 'CUSTOM' } as any,
+      ],
+    };
+    expect(() => toNandOnly(invalidNetlist)).toThrow(/unsupported node kind/);
+    expect(() => toNorOnly(invalidNetlist)).toThrow(/unsupported node kind/);
+  });
+
+  it('Item 4: functionWithMux supports multiple residual variables and arbitrary selections', () => {
+    // 1. Σm(1,2,4,7) over A,B,C with ONLY A as select line (leaving B,C as residual vars)
+    const tt1 = truthTableFromMinterms(['A', 'B', 'C'], [1, 2, 4, 7]);
+    const { netlist: nl1, steps } = functionWithMux(tt1, ['A']);
+    expect(steps.length).toBeGreaterThan(0);
+    const vRes1 = verify(nl1, tt1);
+    expect(vRes1.ok).toBe(true);
+
+    // 2. 20 random functions of 3 and 4 variables for every non-empty proper subset of select vars (up to 3)
+    for (let testIdx = 0; testIdx < 20; testIdx++) {
+      const numVars = testIdx % 2 === 0 ? 3 : 4;
+      const varNames = ['A', 'B', 'C', 'D'].slice(0, numVars);
+      const randExpr = parseExpr(generateRandomExpr(varNames, 2));
+      const tt = truthTableFromExpr(randExpr, varNames);
+
+      const maxSelect = Math.min(3, numVars - 1);
+      for (let sLen = 1; sLen <= maxSelect; sLen++) {
+        const selectVars = varNames.slice(0, sLen);
+        const { netlist } = functionWithMux(tt, selectVars);
+        const vRes = verify(netlist, tt);
+        expect(vRes.ok).toBe(true);
+      }
+    }
+  });
+});
 

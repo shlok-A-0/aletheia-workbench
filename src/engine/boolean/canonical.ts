@@ -1,5 +1,5 @@
 /**
- * LDAM Boolean Engine — Canonical Forms & Expression Serializer
+ * Aletheia Boolean Engine — Canonical Forms & Expression Serializer
  * Generates Canonical SOP (sum of minterms) and Canonical POS (product of maxterms),
  * and converts Expr AST to clean, minimal-parenthesis Boolean algebraic text.
  */

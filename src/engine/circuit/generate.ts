@@ -1,5 +1,5 @@
 /**
- * LDAM Circuit Engine — Netlist Synthesis & Universal Gate Transformation
+ * Aletheia Circuit Engine — Netlist Synthesis & Universal Gate Transformation
  * Synthesizes gate-level Netlists from Boolean expressions or MinResult,
  * supporting fan-in decomposition, inverter sharing, and transformation to
  * strictly NAND-only or strictly NOR-only implementations.
@@ -17,14 +17,18 @@ export class CombinationalLoopError extends Error {
   }
 }
 
-let netCounter = 0;
-function newNet(prefix = 'n'): string {
-  return `${prefix}_${++netCounter}`;
+export interface NameGenerator {
+  net(prefix?: string): string;
+  gate(type?: string): string;
 }
 
-let gateCounter = 0;
-function newGateId(type: string): string {
-  return `g_${type.toLowerCase()}_${++gateCounter}`;
+export function createNameGenerator(): NameGenerator {
+  let netCounter = 0;
+  let gateCounter = 0;
+  return {
+    net: (prefix = 'n') => `${prefix}_${++netCounter}`,
+    gate: (type = 'g') => `g_${type.toLowerCase()}_${++gateCounter}`,
+  };
 }
 
 /**
@@ -34,13 +38,14 @@ function decomposeTree(
   type: 'AND' | 'OR' | 'NAND' | 'NOR',
   inputs: string[],
   maxFanin: number,
-  nodes: Node[]
+  nodes: Node[],
+  names: NameGenerator
 ): string {
   if (inputs.length <= maxFanin) {
-    const outNet = newNet();
+    const outNet = names.net();
     nodes.push({
       kind: 'gate',
-      id: newGateId(type),
+      id: names.gate(type),
       type,
       inputs: [...inputs],
       output: outNet,
@@ -53,13 +58,13 @@ function decomposeTree(
   const leftInputs = inputs.slice(0, mid);
   const rightInputs = inputs.slice(mid);
 
-  const leftOut = decomposeTree(type, leftInputs, maxFanin, nodes);
-  const rightOut = decomposeTree(type, rightInputs, maxFanin, nodes);
+  const leftOut = decomposeTree(type, leftInputs, maxFanin, nodes, names);
+  const rightOut = decomposeTree(type, rightInputs, maxFanin, nodes, names);
 
-  const finalOut = newNet();
+  const finalOut = names.net();
   nodes.push({
     kind: 'gate',
-    id: newGateId(type),
+    id: names.gate(type),
     type,
     inputs: [leftOut, rightOut],
     output: finalOut,
@@ -72,8 +77,12 @@ function decomposeTree(
  */
 export function exprToNetlist(
   expr: Expr,
-  opts?: { name?: string; maxFanin?: number; share?: boolean }
+  opts?: { name?: string; maxFanin?: number; share?: boolean; names?: NameGenerator }
 ): Netlist {
+  const names = opts?.names ?? createNameGenerator();
+  const newNet = (prefix = 'n') => names.net(prefix);
+  const newGateId = (type = 'g') => names.gate(type);
+
   const inputs = collectVars(expr);
   const nodes: Node[] = [];
   const inverterMap = new Map<string, string>(); // varName -> inverter output net
@@ -98,7 +107,7 @@ export function exprToNetlist(
         outNet = newNet('const');
         nodes.push({
           kind: 'const',
-          id: `c_${e.v}_${++gateCounter}`,
+          id: `c_${e.v}_${newGateId('const')}`,
           value: e.v,
           output: outNet,
         });
@@ -141,7 +150,7 @@ export function exprToNetlist(
         const gateType = e.t === 'and' ? 'AND' : 'OR';
 
         if (opts?.maxFanin && inNets.length > opts.maxFanin) {
-          outNet = decomposeTree(gateType, inNets, opts.maxFanin, nodes);
+          outNet = decomposeTree(gateType, inNets, opts.maxFanin, nodes, names);
         } else {
           outNet = newNet(gateType.toLowerCase());
           nodes.push({
@@ -198,12 +207,20 @@ export function minResultToNetlist(r: MinResult): Netlist {
  * Transforms any combinational Netlist into an equivalent strictly NAND-only Netlist.
  * Eliminates double inversions.
  */
-export function toNandOnly(netlist: Netlist): Netlist {
+export function toNandOnly(netlist: Netlist, opts?: { names?: NameGenerator }): Netlist {
+  const names = opts?.names ?? createNameGenerator();
+  const newNet = (prefix = 'n') => names.net(prefix);
+  const newGateId = (type = 'g') => names.gate(type);
   const newNodes: Node[] = [];
   const aliasMap = new Map<string, string>(); // net aliases from eliminated double inversions
 
   function resolve(net: string): string {
-    return aliasMap.has(net) ? resolve(aliasMap.get(net)!) : net;
+    let curr = net;
+    let depth = 0;
+    while (aliasMap.has(curr) && depth++ < 100) {
+      curr = aliasMap.get(curr)!;
+    }
+    return curr;
   }
 
   for (const node of netlist.nodes) {
@@ -212,9 +229,36 @@ export function toNandOnly(netlist: Netlist): Netlist {
       continue;
     }
 
-    if (node.kind !== 'gate') {
-      newNodes.push(node);
+    if (node.kind === 'ff') {
+      // Flip-flops pass through unchanged (clocked sequential state elements)
+      newNodes.push({ ...node });
       continue;
+    }
+
+    if (node.kind !== 'gate') {
+      throw new Error(`unsupported node kind: ${(node as Node).kind}`);
+    }
+
+    function emitNandNot(inp: string, out: string) {
+      newNodes.push({
+        kind: 'gate',
+        id: newGateId('NAND'),
+        type: 'NAND',
+        inputs: [inp, inp],
+        output: out,
+      });
+    }
+
+    function emit2NandXor(a: string, b: string, out: string) {
+      const n1 = newNet('xor_n1');
+      const n2 = newNet('xor_n2');
+      const n3 = newNet('xor_n3');
+      newNodes.push(
+        { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, b], output: n1 },
+        { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, n1], output: n2 },
+        { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [b, n1], output: n3 },
+        { kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [n2, n3], output: out }
+      );
     }
 
     const g = node as Gate;
@@ -330,41 +374,28 @@ export function toNandOnly(netlist: Netlist): Netlist {
       }
 
       case 'XOR': {
-        // Standard 4-NAND implementation of XOR(A, B):
-        // N1 = NAND(A, B)
-        // N2 = NAND(A, N1)
-        // N3 = NAND(B, N1)
-        // Y  = NAND(N2, N3)
-        if (resolvedInputs.length === 2) {
-          const a = resolvedInputs[0];
-          const b = resolvedInputs[1];
-          const n1 = newNet('xor_n1');
-          const n2 = newNet('xor_n2');
-          const n3 = newNet('xor_n3');
-
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, b], output: n1 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, n1], output: n2 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [b, n1], output: n3 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [n2, n3], output: g.output });
+        let curr = resolvedInputs[0];
+        for (let i = 1; i < resolvedInputs.length; i++) {
+          const nextOut = i === resolvedInputs.length - 1 ? g.output : newNet('xor_chain');
+          emit2NandXor(curr, resolvedInputs[i], nextOut);
+          curr = nextOut;
         }
         break;
       }
 
       case 'XNOR': {
-        // XNOR = XOR followed by inverter
         if (resolvedInputs.length === 2) {
-          const a = resolvedInputs[0];
-          const b = resolvedInputs[1];
-          const n1 = newNet('xnor_n1');
-          const n2 = newNet('xnor_n2');
-          const n3 = newNet('xnor_n3');
           const xorOut = newNet('xnor_xor');
-
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, b], output: n1 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [a, n1], output: n2 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [b, n1], output: n3 });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [n2, n3], output: xorOut });
-          newNodes.push({ kind: 'gate', id: newGateId('NAND'), type: 'NAND', inputs: [xorOut, xorOut], output: g.output });
+          emit2NandXor(resolvedInputs[0], resolvedInputs[1], xorOut);
+          emitNandNot(xorOut, g.output);
+        } else {
+          let curr = resolvedInputs[0];
+          for (let i = 1; i < resolvedInputs.length; i++) {
+            const nextOut = newNet('xnor_chain');
+            emit2NandXor(curr, resolvedInputs[i], nextOut);
+            curr = nextOut;
+          }
+          emitNandNot(curr, g.output);
         }
         break;
       }
@@ -416,12 +447,20 @@ export function toNandOnly(netlist: Netlist): Netlist {
  * Transforms any combinational Netlist into an equivalent strictly NOR-only Netlist.
  * Eliminates double inversions.
  */
-export function toNorOnly(netlist: Netlist): Netlist {
+export function toNorOnly(netlist: Netlist, opts?: { names?: NameGenerator }): Netlist {
+  const names = opts?.names ?? createNameGenerator();
+  const newNet = (prefix = 'n') => names.net(prefix);
+  const newGateId = (type = 'g') => names.gate(type);
   const newNodes: Node[] = [];
   const aliasMap = new Map<string, string>();
 
   function resolve(net: string): string {
-    return aliasMap.has(net) ? resolve(aliasMap.get(net)!) : net;
+    let curr = net;
+    let depth = 0;
+    while (aliasMap.has(curr) && depth++ < 100) {
+      curr = aliasMap.get(curr)!;
+    }
+    return curr;
   }
 
   for (const node of netlist.nodes) {
@@ -430,9 +469,42 @@ export function toNorOnly(netlist: Netlist): Netlist {
       continue;
     }
 
-    if (node.kind !== 'gate') {
-      newNodes.push(node);
+    if (node.kind === 'ff') {
+      // Flip-flops pass through unchanged (clocked sequential state elements)
+      newNodes.push({ ...node });
       continue;
+    }
+
+    if (node.kind !== 'gate') {
+      throw new Error(`unsupported node kind: ${(node as Node).kind}`);
+    }
+
+    function emitNorNot(inp: string, out: string) {
+      newNodes.push({
+        kind: 'gate',
+        id: newGateId('NOR'),
+        type: 'NOR',
+        inputs: [inp, inp],
+        output: out,
+      });
+    }
+
+    function emit2NorXnor(a: string, b: string, out: string) {
+      const n1 = newNet('xnor_n1');
+      const n2 = newNet('xnor_n2');
+      const n3 = newNet('xnor_n3');
+      newNodes.push(
+        { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [a, b], output: n1 },
+        { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [a, n1], output: n2 },
+        { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [b, n1], output: n3 },
+        { kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [n2, n3], output: out }
+      );
+    }
+
+    function emit2NorXor(a: string, b: string, out: string) {
+      const xnorOut = newNet('xor_temp');
+      emit2NorXnor(a, b, xnorOut);
+      emitNorNot(xnorOut, out);
     }
 
     const g = node as Gate;
@@ -546,30 +618,27 @@ export function toNorOnly(netlist: Netlist): Netlist {
         break;
       }
 
-      case 'XOR':
+      case 'XOR': {
+        let curr = resolvedInputs[0];
+        for (let i = 1; i < resolvedInputs.length; i++) {
+          const nextOut = i === resolvedInputs.length - 1 ? g.output : newNet('xor_chain');
+          emit2NorXor(curr, resolvedInputs[i], nextOut);
+          curr = nextOut;
+        }
+        break;
+      }
+
       case 'XNOR': {
-        // 4-NOR implementation of XNOR:
-        // N1 = NOR(A, B)
-        // N2 = NOR(A, N1)
-        // N3 = NOR(B, N1)
-        // XNOR = NOR(N2, N3)
-        // XOR = NOR(XNOR, XNOR)
         if (resolvedInputs.length === 2) {
-          const a = resolvedInputs[0];
-          const b = resolvedInputs[1];
-          const n1 = newNet('xnor_n1');
-          const n2 = newNet('xnor_n2');
-          const n3 = newNet('xnor_n3');
-          const xnorOut = g.type === 'XNOR' ? g.output : newNet('xor_temp');
-
-          newNodes.push({ kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [a, b], output: n1 });
-          newNodes.push({ kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [a, n1], output: n2 });
-          newNodes.push({ kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [b, n1], output: n3 });
-          newNodes.push({ kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [n2, n3], output: xnorOut });
-
-          if (g.type === 'XOR') {
-            newNodes.push({ kind: 'gate', id: newGateId('NOR'), type: 'NOR', inputs: [xnorOut, xnorOut], output: g.output });
+          emit2NorXnor(resolvedInputs[0], resolvedInputs[1], g.output);
+        } else {
+          let curr = resolvedInputs[0];
+          for (let i = 1; i < resolvedInputs.length; i++) {
+            const nextOut = newNet('xnor_chain');
+            emit2NorXor(curr, resolvedInputs[i], nextOut);
+            curr = nextOut;
           }
+          emitNorNot(curr, g.output);
         }
         break;
       }
@@ -616,4 +685,3 @@ export function toNorOnly(netlist: Netlist): Netlist {
     nodes: finalNodes,
   };
 }
-

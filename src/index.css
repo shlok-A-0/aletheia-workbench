@@ -27,6 +27,27 @@
   --shadow-glow: 0 0 20px rgba(0, 210, 255, 0.15);
 }
 
+:root[data-theme="light"] {
+  --bg-primary: #f4f7fb;
+  --bg-secondary: #e8edf5;
+  --bg-tertiary: #dbe3ed;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(15, 23, 42, 0.16);
+  --border-focus: #0369a1;
+  --accent-cyan: #0369a1;
+  --accent-blue: #2563eb;
+  --accent-indigo: #4f46e5;
+  --accent-emerald: #047857;
+  --accent-amber: #b45309;
+  --accent-rose: #be123c;
+  --text-primary: #111827;
+  --text-secondary: #334155;
+  --text-muted: #526174;
+  --shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.12);
+  --shadow-glow: 0 0 16px rgba(3, 105, 161, 0.12);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

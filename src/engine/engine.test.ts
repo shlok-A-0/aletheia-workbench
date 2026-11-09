@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { TruthTable, Netlist } from './types';
 
-describe('LDAM Core Engine Smoke Tests', () => {
+describe('Aletheia core engine smoke tests', () => {
   it('types and data contracts compile cleanly', () => {
     const sampleTable: TruthTable = {
       vars: ['A', 'B'],

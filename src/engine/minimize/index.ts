@@ -1,5 +1,5 @@
 /**
- * LDAM Minimization Engine — Public Module Exports
+ * Aletheia Minimization Engine — Public Module Exports
  * Re-exports Quine–McCluskey, Karnaugh Map (K-Map), and Multi-Output minimization.
  */
 

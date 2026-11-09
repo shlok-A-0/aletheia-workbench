@@ -1,5 +1,5 @@
 /**
- * LDAM Circuit Engine — Module Exports
+ * Aletheia Circuit Engine — Module Exports
  */
 
 export * from './generate';

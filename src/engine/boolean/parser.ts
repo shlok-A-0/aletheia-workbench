@@ -1,5 +1,5 @@
 /**
- * LDAM Boolean Engine — Expression Parser
+ * Aletheia Boolean Engine — Expression Parser
  * Parses Boolean expressions with support for:
  * - Single-letter variables (A–Z)
  * - Prefix NOT (!, ~, NOT) and Postfix NOT (')
@@ -71,7 +71,8 @@ function tokenize(input: string): Token[] {
 
     // Check for keywords first (case-insensitive)
     const remaining = input.slice(i);
-    const keywordMatch = remaining.match(/^(XNOR|XOR|AND|NOT|OR)\b/i);
+    const precededByLetter = i > 0 && /[a-z]/i.test(input[i - 1]);
+    const keywordMatch = precededByLetter ? null : remaining.match(/^(XNOR|XOR|AND|NOT|OR)\b/i);
     if (keywordMatch) {
       const kw = keywordMatch[1].toUpperCase();
       let type: TokenType = 'AND';
@@ -297,11 +298,10 @@ class Parser {
  * @throws {ParseError} If the expression is malformed.
  */
 export function parseExpr(text: string): Expr {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) {
+  if (text.trim().length === 0) {
     throw new ParseError('Empty expression', 0);
   }
-  const tokens = tokenize(trimmed);
+  const tokens = tokenize(text);
   const parser = new Parser(tokens);
   return parser.parse();
 }

@@ -1,5 +1,5 @@
 /**
- * LDAM Minimization Engine — Karnaugh Map (K-Map)
+ * Aletheia Minimization Engine — Karnaugh Map (K-Map)
  * Supports 2, 3, and 4 variables with Gray-code coordinate mapping (00, 01, 11, 10),
  * torus wrap-around group detection (including 4-corner groups), and pedagogical Step[] generation.
  */
@@ -41,6 +41,7 @@ export interface KMapGroup {
 
 const GRAY_1 = ['0', '1'];
 const GRAY_2 = ['00', '01', '11', '10'];
+const GRAY_3 = ['000', '001', '011', '010', '110', '111', '101', '100'];
 
 /**
  * Builds the 2D Gray-code K-map data structure for 2, 3, or 4 variables.
@@ -49,8 +50,8 @@ export function buildKMap(tt: TruthTable): KMap {
   const vars = tt.vars;
   const numVars = vars.length;
 
-  if (numVars < 2 || numVars > 4) {
-    throw new Error(`K-Map visual grid supports 2 to 4 variables, got ${numVars}`);
+  if (numVars < 2 || numVars > 5) {
+    throw new Error(`K-Map visual grid supports 2 to 5 variables, got ${numVars}`);
   }
 
   let rowVars: string[];
@@ -68,12 +69,16 @@ export function buildKMap(tt: TruthTable): KMap {
     colVars = [vars[1], vars[2]];
     rowHeaders = GRAY_1;
     colHeaders = GRAY_2;
-  } else {
-    // 4 variables
+  } else if (numVars === 4) {
     rowVars = [vars[0], vars[1]];
     colVars = [vars[2], vars[3]];
     rowHeaders = GRAY_2;
     colHeaders = GRAY_2;
+  } else {
+    rowVars = [vars[0], vars[1]];
+    colVars = [vars[2], vars[3], vars[4]];
+    rowHeaders = GRAY_2;
+    colHeaders = GRAY_3;
   }
 
   const numRows = rowHeaders.length;
@@ -168,8 +173,8 @@ export function kmapGroups(
   const careSet = new Set(careTerms);
 
   // Power of 2 dimensions
-  const rowSizes = [1, 2, 4].filter((s) => s <= numRows);
-  const colSizes = [1, 2, 4].filter((s) => s <= numCols);
+  const rowSizes = [1, 2, 4, 8].filter((s) => s <= numRows);
+  const colSizes = [1, 2, 4, 8].filter((s) => s <= numCols);
 
   const rawGroups: {
     cells: number[];

@@ -8,11 +8,14 @@ let workerInstance: Remote<WorkerApi> | null = null;
  * All worker methods return Promises via Comlink's Remote proxy.
  */
 export function getEngineWorker(): Remote<WorkerApi> {
-  if (!workerInstance && typeof window !== 'undefined') {
+  if (!workerInstance) {
+    if (typeof Worker === 'undefined') {
+      throw new Error('This browser does not support Web Workers required for large analyses.');
+    }
     const worker = new Worker(new URL('./engine.worker.ts', import.meta.url), {
       type: 'module',
     });
     workerInstance = wrap<WorkerApi>(worker);
   }
-  return workerInstance!;
+  return workerInstance;
 }

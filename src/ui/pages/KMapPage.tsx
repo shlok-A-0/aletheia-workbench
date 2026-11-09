@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import {
@@ -8,8 +8,15 @@ import {
   quineMcCluskey,
   findPrimeImplicants,
 } from '../../engine/minimize';
-import { truthTableFromExpr, parseExpr, mintermsOf, maxtermsOf } from '../../engine/boolean';
+import { truthTableFromExpr, parseExpr, mintermsOf, maxtermsOf, dontCaresOf } from '../../engine/boolean';
 import type { TruthTable } from '../../engine/types';
+import { getEngineWorker } from '../../workers/useEngineWorker';
+import type { WorkerApi } from '../../workers/engine.worker';
+
+type WorkerMinimization = Awaited<ReturnType<WorkerApi['minimizeTable']>>;
+type StoredWorkerResult =
+  | { table: TruthTable; result: WorkerMinimization; error?: never }
+  | { table: TruthTable; result?: never; error: string };
 
 export const KMapPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +25,8 @@ export const KMapPage: React.FC = () => {
   const [form, setForm] = useState<'SOP' | 'POS'>(selectedForm);
   const [activeTab, setActiveTab] = useState<'kmap' | 'qm'>('kmap');
   const [hoveredGroup, setHoveredGroup] = useState<number | null>(null);
+  const [includeDontCares, setIncludeDontCares] = useState(true);
+  const [storedWorkerResult, setStoredWorkerResult] = useState<StoredWorkerResult | null>(null);
 
   const defaultTable = useMemo<TruthTable>(() => {
     return truthTableFromExpr(parseExpr("A'B + C"), ['A', 'B', 'C']);
@@ -25,37 +34,81 @@ export const KMapPage: React.FC = () => {
 
   const activeTable = truthTable ?? defaultTable;
   const numVars = activeTable.vars.length;
-  const canRenderKMap = numVars >= 2 && numVars <= 4;
+  const canRenderKMap = numVars >= 2 && numVars <= 5;
+  const minimizationTable = useMemo(() => {
+    if (includeDontCares) return activeTable;
+    const fixedValue = form === 'SOP' ? 0 : 1;
+    return {
+      vars: [...activeTable.vars],
+      rows: activeTable.rows.map((row) => ({
+        ...row,
+        out: row.out === 'x' ? fixedValue : row.out,
+      })),
+    } as TruthTable;
+  }, [activeTable, form, includeDontCares]);
 
-  const qmResult = useMemo(() => {
-    return quineMcCluskey(activeTable, form);
-  }, [activeTable, form]);
+  const needsWorker = numVars > 5;
+  useEffect(() => {
+    if (!needsWorker) return;
+    let current = true;
+    void Promise.resolve()
+      .then(() => getEngineWorker().minimizeTable(minimizationTable))
+      .then((result) => {
+        if (current) setStoredWorkerResult({ table: minimizationTable, result });
+      }).catch((error: unknown) => {
+        if (current) setStoredWorkerResult({
+          table: minimizationTable,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return () => { current = false; };
+  }, [needsWorker, minimizationTable]);
+
+  const workerResult = storedWorkerResult?.table === minimizationTable ? storedWorkerResult : null;
+  const localResults = useMemo(() => {
+    if (needsWorker) return null;
+    const sop = quineMcCluskey(minimizationTable, 'SOP');
+    const pos = quineMcCluskey(minimizationTable, 'POS');
+    const dontCares = dontCaresOf(minimizationTable);
+    return {
+      results: { SOP: sop, POS: pos },
+      details: {
+        SOP: findPrimeImplicants(mintermsOf(minimizationTable), dontCares, minimizationTable.vars.length),
+        POS: findPrimeImplicants(maxtermsOf(minimizationTable), dontCares, minimizationTable.vars.length),
+      },
+      careTerms: {
+        SOP: mintermsOf(minimizationTable),
+        POS: maxtermsOf(minimizationTable),
+      },
+    };
+  }, [minimizationTable, needsWorker]);
+  const results = workerResult?.result ?? localResults;
+  const qmResult = results?.results[form] ?? null;
 
   const kmapData = useMemo(() => {
     if (!canRenderKMap) return null;
-    return buildKMap(activeTable);
-  }, [activeTable, canRenderKMap]);
+    return buildKMap(minimizationTable);
+  }, [minimizationTable, canRenderKMap]);
 
   const kmapGroupData = useMemo(() => {
     if (!canRenderKMap) return null;
-    return kmapGroups(activeTable, form);
-  }, [activeTable, form, canRenderKMap]);
+    return kmapGroups(minimizationTable, form);
+  }, [minimizationTable, form, canRenderKMap]);
 
   const kmapSimpResult = useMemo(() => {
     if (!canRenderKMap) return qmResult;
-    return kmapSimplify(activeTable, form);
-  }, [activeTable, form, canRenderKMap, qmResult]);
+    if (!qmResult) return null;
+    return kmapSimplify(minimizationTable, form);
+  }, [minimizationTable, form, canRenderKMap, qmResult]);
 
-  // QM detailed columns & PI chart
-  const qmDetails = useMemo(() => {
-    const careTerms = form === 'SOP' ? mintermsOf(activeTable) : maxtermsOf(activeTable);
-    const { primeImplicants, columnsData } = findPrimeImplicants(
-      careTerms,
-      [],
-      activeTable.vars.length
-    );
-    return { primeImplicants, columnsData, careTerms };
-  }, [activeTable, form]);
+  const sopResult = results?.results.SOP ?? null;
+  const posResult = results?.results.POS ?? null;
+  const qmDetails = results
+    ? {
+      ...results.details[form],
+      careTerms: results.careTerms[form],
+    }
+    : null;
 
   const handleFormChange = (newForm: 'SOP' | 'POS') => {
     setForm(newForm);
@@ -76,10 +129,24 @@ export const KMapPage: React.FC = () => {
     'rgba(239, 68, 68, 0.25)',
   ];
 
+  if (!qmResult || !sopResult || !posResult || !qmDetails || !kmapSimpResult) {
+    const workerError = workerResult && 'error' in workerResult ? workerResult.error : null;
+    return (
+      <div className="page-container">
+        <div className="page-header">
+          <h1>K-Map &amp; Quine–McCluskey Minimization</h1>
+          <p className="subtitle">Eight-variable minimization runs in the engine Web Worker.</p>
+        </div>
+        <section className="glass-card" role={workerError ? 'alert' : 'status'} aria-busy={!workerError}>
+          {workerError ?? 'Minimizing the current truth table in the background…'}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
-        <div className="badge">Phase 2: Logic Minimization</div>
         <h1>K-Map & Quine–McCluskey Minimization</h1>
         <p className="subtitle">
           Visual Gray-code Karnaugh map grouping and deterministic Quine–McCluskey tabular reduction
@@ -103,6 +170,14 @@ export const KMapPage: React.FC = () => {
             Product of Sums (POS)
           </button>
         </div>
+        <label className="kmap-dont-care-toggle">
+          <input
+            type="checkbox"
+            checked={includeDontCares}
+            onChange={(event) => setIncludeDontCares(event.target.checked)}
+          />
+          Use don't-cares
+        </label>
 
         <div className="view-toggle-group">
           <button
@@ -110,7 +185,7 @@ export const KMapPage: React.FC = () => {
             onClick={() => setActiveTab('kmap')}
             disabled={!canRenderKMap}
           >
-            🗺️ K-Map View {canRenderKMap ? `(${numVars} vars)` : '(2–4 vars only)'}
+            🗺️ K-Map View {canRenderKMap ? `(${numVars} vars)` : '(2–5 vars only)'}
           </button>
           <button
             className={`tab-btn ${activeTab === 'qm' ? 'active' : ''}`}
@@ -138,6 +213,8 @@ export const KMapPage: React.FC = () => {
             <span className="metric-pill agreement">
               ✓ K-Map & QM Agree (Optimal Minimal Cover)
             </span>
+            <span className="metric-pill">SOP: <code>{sopResult.text}</code></span>
+            <span className="metric-pill">POS: <code>{posResult.text}</code></span>
             {kmapSimpResult.note && (
               <span className="metric-pill note">{kmapSimpResult.note}</span>
             )}
@@ -196,6 +273,7 @@ export const KMapPage: React.FC = () => {
                             key={cell.col}
                             className={`kmap-cell val-${cell.value} ${isHovered ? 'cell-hovered' : ''}`}
                             style={{ backgroundColor: primaryColor }}
+                            onMouseEnter={() => setHoveredGroup(matchingGroupIndices[0] ?? null)}
                           >
                             <span className="cell-minterm">m{cell.minterm}</span>
                             <span className="cell-val">{cell.value}</span>
@@ -229,15 +307,19 @@ export const KMapPage: React.FC = () => {
               {kmapGroupData.groups.map((g, idx) => (
                 <div
                   key={idx}
-                  className={`group-card ${hoveredGroup === idx ? 'hovered' : ''}`}
+                  className={`group-card ${hoveredGroup === idx ? 'hovered' : ''} ${g.essential ? 'essential-group' : ''}`}
                   onMouseEnter={() => setHoveredGroup(idx)}
                   onMouseLeave={() => setHoveredGroup(null)}
+                  onClick={() => setHoveredGroup(hoveredGroup === idx ? null : idx)}
+                  onFocus={() => setHoveredGroup(idx)}
+                  tabIndex={0}
                 >
                   <div className="group-card-header">
                     <span className="group-badge" style={{ backgroundColor: groupColors[idx % groupColors.length] }}>
                       G{idx + 1}
                     </span>
                     <code className="group-term">{g.termText}</code>
+                    {g.essential && <span className="epi-badge">Essential</span>}
                     {g.isCornerGroup && <span className="wrap-tag corner">4 Corners</span>}
                     {(g.isEdgeWrapRow || g.isEdgeWrapCol) && !g.isCornerGroup && (
                       <span className="wrap-tag wrap">Wrap-Around</span>
@@ -271,6 +353,16 @@ export const KMapPage: React.FC = () => {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'kmap' && !canRenderKMap && (
+        <div className="glass-card" style={{ padding: '24px', textAlign: 'center' }}>
+          <h3>K-Map Visualization Unavailable ({minimizationTable.vars.length} Variables)</h3>
+          <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
+            The visual Karnaugh map grid supports 2 to 5 variables.
+            Please switch to the <strong>Quine–McCluskey Tables</strong> tab above to view the tabular minimization.
+          </p>
         </div>
       )}
 
@@ -327,7 +419,21 @@ export const KMapPage: React.FC = () => {
                     const coverSet = new Set(pi.covers);
 
                     return (
-                      <tr key={piIdx} className={isEssential ? 'essential-row' : ''}>
+                      <tr
+                        key={piIdx}
+                        className={`${isEssential ? 'essential-row' : ''} ${
+                          hoveredGroup !== null &&
+                          kmapGroupData?.groups[hoveredGroup]?.implicant.bits.join('') === pi.bits.join('')
+                            ? 'selected-group-row'
+                            : ''
+                        }`}
+                        onMouseEnter={() => {
+                          const index = kmapGroupData?.groups.findIndex(
+                            (group) => group.implicant.bits.join('') === pi.bits.join('')
+                          );
+                          setHoveredGroup(index !== undefined && index >= 0 ? index : null);
+                        }}
+                      >
                         <td>
                           <code className="font-mono">{pi.bits.join('')}</code>
                           {isEssential && <span className="epi-badge">EPI</span>}
@@ -354,7 +460,7 @@ export const KMapPage: React.FC = () => {
           ← Back to Truth Table
         </button>
         <button className="btn-primary-large" onClick={handleProceedToCircuit}>
-          Synthesize Circuit Schematic (Phase 3) →
+          Synthesize Circuit Schematic →
         </button>
       </div>
     </div>

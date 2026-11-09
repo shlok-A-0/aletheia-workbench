@@ -1,19 +1,26 @@
 /**
- * LDAM Circuit Engine — Standard MSI Blocks Library
+ * Aletheia Circuit Engine — Standard MSI Blocks Library
  * Gate-level synthesizers for common MSI blocks (Multiplexers, Demultiplexers,
  * Decoders, Priority Encoders, Adders, Comparators, BCD-to-7-Segment, and MUX realization).
  */
 
 import type { Netlist, Node, TruthTable, Step } from '../types';
+import { quineMcCluskey } from '../minimize/qm';
+import { truthTableFromMinterms } from '../boolean/truth-table';
+import { exprToNetlist } from './generate';
 
-let blockNetCounter = 0;
-function bNet(p = 'bn'): string {
-  return `${p}_${++blockNetCounter}`;
+export interface BlockNameGenerator {
+  net(p?: string): string;
+  gate(t?: string): string;
 }
 
-let blockGateCounter = 0;
-function bGateId(t = 'g'): string {
-  return `${t.toLowerCase()}_${++blockGateCounter}`;
+export function createBlockNameGenerator(): BlockNameGenerator {
+  let netCounter = 0;
+  let gateCounter = 0;
+  return {
+    net: (p = 'bn') => `${p}_${++netCounter}`,
+    gate: (t = 'g') => `${t.toLowerCase()}_${++gateCounter}`,
+  };
 }
 
 /**
@@ -21,7 +28,9 @@ function bGateId(t = 'g'): string {
  * Inputs: Select lines (S(k-1)..S0), followed by Data lines (D0..D(2^k - 1)).
  * Output: Y.
  */
-export function mux(selectBits: 1 | 2 | 3): Netlist {
+export function mux(selectBits: 1 | 2 | 3, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const numSelect = selectBits;
   const numData = 1 << numSelect;
 
@@ -95,7 +104,9 @@ export function mux(selectBits: 1 | 2 | 3): Netlist {
  * Inputs: Data input D, followed by Select lines S(k-1)..S0.
  * Outputs: Y0..Y(2^k - 1).
  */
-export function demux(selectBits: 1 | 2 | 3): Netlist {
+export function demux(selectBits: 1 | 2 | 3, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const numSelect = selectBits;
   const numOutputs = 1 << numSelect;
 
@@ -156,7 +167,9 @@ export function demux(selectBits: 1 | 2 | 3): Netlist {
  * Inputs: E (Enable), A(n-1)..A0.
  * Outputs: Y0..Y(2^n - 1).
  */
-export function decoder(n: number): Netlist {
+export function decoder(n: number, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const numOutputs = 1 << n;
   const inVars: string[] = [];
   for (let i = n - 1; i >= 0; i--) inVars.push(`A${i}`);
@@ -209,7 +222,8 @@ export function decoder(n: number): Netlist {
 /**
  * Standard 2^n to n binary encoder.
  */
-export function encoder(n: number): Netlist {
+export function encoder(n: number, names = createBlockNameGenerator()): Netlist {
+  const bGateId = (t = 'g') => names.gate(t);
   const numInputs = 1 << n;
   const inputs: string[] = [];
   for (let i = 0; i < numInputs; i++) inputs.push(`D${i}`);
@@ -249,7 +263,9 @@ export function encoder(n: number): Netlist {
  * Inputs: D3, D2, D1, D0 (D3 is highest priority).
  * Outputs: Y1, Y0, V (Valid flag).
  */
-export function priorityEncoder(n = 4): Netlist {
+export function priorityEncoder(n = 4, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   if (n !== 4) {
     throw new Error('Priority encoder currently implemented for 4 inputs');
   }
@@ -315,7 +331,8 @@ export function priorityEncoder(n = 4): Netlist {
  * 1-bit Half Adder.
  * S = A ^ B, C = A * B.
  */
-export function halfAdder(): Netlist {
+export function halfAdder(names = createBlockNameGenerator()): Netlist {
+  const bGateId = (t = 'g') => names.gate(t);
   const nodes: Node[] = [
     { kind: 'gate', id: bGateId('XOR'), type: 'XOR', inputs: ['A', 'B'], output: 'S' },
     { kind: 'gate', id: bGateId('AND'), type: 'AND', inputs: ['A', 'B'], output: 'C' },
@@ -333,7 +350,9 @@ export function halfAdder(): Netlist {
  * S = A ^ B ^ Cin.
  * Cout = AB + Cin(A ^ B).
  */
-export function fullAdder(): Netlist {
+export function fullAdder(names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const axorb = bNet('axorb');
   const term1 = bNet('ab');
   const term2 = bNet('cin_axorb');
@@ -358,7 +377,9 @@ export function fullAdder(): Netlist {
  * n-bit Ripple Carry Adder.
  * Adds A(n-1)..A0 and B(n-1)..B0 with carry-out.
  */
-export function rippleAdder(bits = 4): Netlist {
+export function rippleAdder(bits = 4, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const inputs: string[] = [];
   for (let i = bits - 1; i >= 0; i--) inputs.push(`A${i}`);
   for (let i = bits - 1; i >= 0; i--) inputs.push(`B${i}`);
@@ -373,7 +394,7 @@ export function rippleAdder(bits = 4): Netlist {
   // Initial Cin = 0
   nodes.push({
     kind: 'const',
-    id: `c_cin0_${++blockGateCounter}`,
+    id: bGateId('c_cin0'),
     value: 0,
     output: carryNet,
   });
@@ -409,7 +430,9 @@ export function rippleAdder(bits = 4): Netlist {
  * n-bit Magnitude Comparator.
  * Outputs: GT (A > B), EQ (A == B), LT (A < B).
  */
-export function comparator(bits = 4): Netlist {
+export function comparator(bits = 4, names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const aInputs: string[] = [];
   const bInputs: string[] = [];
   for (let i = bits - 1; i >= 0; i--) aInputs.push(`A${i}`);
@@ -492,24 +515,18 @@ export function comparator(bits = 4): Netlist {
  * Inputs: B3, B2, B1, B0 (BCD representation 0–9).
  * Outputs: a, b, c, d, e, f, g.
  */
-export function bcdTo7Seg(): Netlist {
+export function bcdTo7Seg(names = createBlockNameGenerator()): Netlist {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const inputs = ['B3', 'B2', 'B1', 'B0'];
   const outputs = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
   const nodes: Node[] = [];
 
-  // Minterms for 7-segments standard BCD active-high:
-  // Digit 0 (0000): a,b,c,d,e,f
-  // Digit 1 (0001): b,c
-  // Digit 2 (0010): a,b,d,e,g
-  // Digit 3 (0011): a,b,c,d,g
-  // Digit 4 (0100): b,c,f,g
-  // Digit 5 (0101): a,c,d,f,g
-  // Digit 6 (0110): a,c,d,e,f,g
-  // Digit 7 (0111): a,b,c
-  // Digit 8 (1000): a,b,c,d,e,f,g
-  // Digit 9 (1001): a,b,c,d,f,g
+  // Minterms for 7-segments standard BCD active-high (digits 0–9):
+  // 0 -> abcdef, 1 -> bc, 2 -> abdeg, 3 -> abcdg, 4 -> bcfg,
+  // 5 -> acdfg, 6 -> acdefg, 7 -> abc, 8 -> abcdefg, 9 -> abcdfg
   const segMinterms: Record<string, number[]> = {
-    a: [0, 2, 3, 5, 7, 8, 9],
+    a: [0, 2, 3, 5, 6, 7, 8, 9],
     b: [0, 1, 2, 3, 4, 7, 8, 9],
     c: [0, 1, 3, 4, 5, 6, 7, 8, 9],
     d: [0, 2, 3, 5, 6, 8, 9],
@@ -517,31 +534,89 @@ export function bcdTo7Seg(): Netlist {
     f: [0, 4, 5, 6, 8, 9],
     g: [2, 3, 4, 5, 6, 8, 9],
   };
+  const dontCares = [10, 11, 12, 13, 14, 15];
 
-  const notB: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    const nb = bNet(`not_b${i}`);
-    nodes.push({ kind: 'gate', id: bGateId('NOT'), type: 'NOT', inputs: [`B${i}`], output: nb });
-    notB.push(nb);
+  // Inverters for inputs
+  const notB: Record<string, string> = {};
+  for (const b of inputs) {
+    const nb = bNet(`not_${b}`);
+    nodes.push({ kind: 'gate', id: bGateId('NOT'), type: 'NOT', inputs: [b], output: nb });
+    notB[b] = nb;
   }
 
-  // Synthesize each segment as sum of minterms
-  for (const seg of outputs) {
-    const mList = segMinterms[seg];
-    const andTerms: string[] = [];
+  // Shared product term map: termKey -> output net
+  const sharedTermMap = new Map<string, string>();
 
-    for (const m of mList) {
-      const termInputs: string[] = [];
-      for (let bit = 0; bit < 4; bit++) {
-        const val = (m >> (3 - bit)) & 1;
-        termInputs.push(val === 1 ? `B${3 - bit}` : notB[3 - bit]);
-      }
-      const andOut = bNet(`seg_${seg}_m${m}`);
-      nodes.push({ kind: 'gate', id: bGateId('AND'), type: 'AND', inputs: termInputs, output: andOut });
-      andTerms.push(andOut);
+  function getTermNet(bits: (0 | 1 | '-')[]): string {
+    const key = bits.join('');
+    if (sharedTermMap.has(key)) {
+      return sharedTermMap.get(key)!;
     }
 
-    nodes.push({ kind: 'gate', id: bGateId('OR'), type: 'OR', inputs: andTerms, output: seg });
+    const termInputs: string[] = [];
+    for (let bit = 0; bit < 4; bit++) {
+      const bVal = bits[bit];
+      const inName = inputs[bit];
+      if (bVal === 1) {
+        termInputs.push(inName);
+      } else if (bVal === 0) {
+        termInputs.push(notB[inName]);
+      }
+    }
+
+    if (termInputs.length === 0) {
+      const const1 = bNet('const_1');
+      nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: const1 });
+      sharedTermMap.set(key, const1);
+      return const1;
+    }
+
+    if (termInputs.length === 1) {
+      sharedTermMap.set(key, termInputs[0]);
+      return termInputs[0];
+    }
+
+    const andOut = bNet(`and_term_${key.replace(/-/g, 'x')}`);
+    nodes.push({
+      kind: 'gate',
+      id: bGateId('AND'),
+      type: 'AND',
+      inputs: termInputs,
+      output: andOut,
+    });
+    sharedTermMap.set(key, andOut);
+    return andOut;
+  }
+
+  // Minimize each segment with QM and synthesize with shared terms
+  for (const seg of outputs) {
+    const tt = truthTableFromMinterms(inputs, segMinterms[seg], dontCares);
+    const minRes = quineMcCluskey(tt, 'SOP');
+
+    const orInputs: string[] = [];
+    for (const imp of minRes.implicants) {
+      orInputs.push(getTermNet(imp.bits));
+    }
+
+    if (orInputs.length === 0) {
+      nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: seg });
+    } else if (orInputs.length === 1) {
+      nodes.push({
+        kind: 'gate',
+        id: bGateId('BUF'),
+        type: 'BUF',
+        inputs: [orInputs[0]],
+        output: seg,
+      });
+    } else {
+      nodes.push({
+        kind: 'gate',
+        id: bGateId('OR'),
+        type: 'OR',
+        inputs: orInputs,
+        output: seg,
+      });
+    }
   }
 
   return {
@@ -559,34 +634,50 @@ export function bcdTo7Seg(): Netlist {
  */
 export function functionWithMux(
   tt: TruthTable,
-  selectVars: string[]
+  selectVars: string[],
+  names = createBlockNameGenerator()
 ): { netlist: Netlist; steps: Step[] } {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
   const steps: Step[] = [];
   const allVars = tt.vars;
-  const residualVars = allVars.filter((v) => !selectVars.includes(v));
+
+  for (const sv of selectVars) {
+    if (!allVars.includes(sv)) {
+      throw new Error(`Select variable '${sv}' is not in truth table variables: ${allVars.join(', ')}`);
+    }
+  }
 
   const k = selectVars.length;
+  if (k < 1 || k > 3) {
+    throw new Error(`functionWithMux supports 1 to 3 select variables, got ${k}`);
+  }
+
   const numDataLines = 1 << k;
+  const residualVars = allVars.filter((v) => !selectVars.includes(v));
 
   steps.push({
     title: 'Shannon Expansion Selection',
     detail: `Selected ${selectVars.join(', ')} as MUX select lines (${k} lines → ${numDataLines}:1 MUX). Residual variables: {${residualVars.join(', ') || 'none'}}.`,
   });
 
-  const muxCircuit = mux(k as 1 | 2 | 3);
+  const muxCircuit = mux(k as 1 | 2 | 3, names);
   const nodes: Node[] = [...muxCircuit.nodes];
 
-  // Inverter for residual variable if needed
-  let residualNotNet: string | null = null;
-  if (residualVars.length === 1) {
-    residualNotNet = bNet(`not_${residualVars[0]}`);
+  // Inverter map for residual variables
+  const invMap = new Map<string, string>();
+  function getInv(vName: string): string {
+    if (invMap.has(vName)) return invMap.get(vName)!;
+    const invNet = bNet(`not_${vName}`);
     nodes.push({
       kind: 'gate',
       id: bGateId('NOT'),
       type: 'NOT',
-      inputs: [residualVars[0]],
-      output: residualNotNet,
+      inputs: [vName],
+      output: invNet,
     });
+    invMap.set(vName, invNet);
+    return invNet;
   }
 
   const aliasMap = new Map<string, string>();
@@ -599,8 +690,8 @@ export function functionWithMux(
   // Constants 0 and 1
   const const0 = bNet('const_0');
   const const1 = bNet('const_1');
-  nodes.push({ kind: 'const', id: `c0_${++blockGateCounter}`, value: 0, output: const0 });
-  nodes.push({ kind: 'const', id: `c1_${++blockGateCounter}`, value: 1, output: const1 });
+  nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: const0 });
+  nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: const1 });
 
   // For each select combination d, evaluate truth values across residual vars
   for (let d = 0; d < numDataLines; d++) {
@@ -626,25 +717,52 @@ export function functionWithMux(
       const val = matchingRows[0]?.out === 1 ? 1 : 0;
       assignedNet = val === 1 ? const1 : const0;
       label = val.toString();
-    } else if (residualVars.length === 1) {
-      const rName = residualVars[0];
-      const rColIdx = allVars.indexOf(rName);
+    } else {
+      const all0 = matchingRows.every((r) => r.out === 0);
+      const all1 = matchingRows.every((r) => r.out === 1);
 
-      const outAt0 = matchingRows.find((r) => r.inputs[rColIdx] === 0)?.out;
-      const outAt1 = matchingRows.find((r) => r.inputs[rColIdx] === 1)?.out;
-
-      if (outAt0 === 0 && outAt1 === 0) {
+      if (all0) {
         assignedNet = const0;
         label = '0';
-      } else if (outAt0 === 1 && outAt1 === 1) {
+      } else if (all1) {
         assignedNet = const1;
         label = '1';
-      } else if (outAt0 === 0 && outAt1 === 1) {
-        assignedNet = rName;
-        label = rName;
-      } else if (outAt0 === 1 && outAt1 === 0) {
-        assignedNet = residualNotNet!;
-        label = `${rName}'`;
+      } else if (residualVars.length === 1) {
+        const rName = residualVars[0];
+        const rColIdx = allVars.indexOf(rName);
+        const outAt0 = matchingRows.find((r) => r.inputs[rColIdx] === 0)?.out;
+        const outAt1 = matchingRows.find((r) => r.inputs[rColIdx] === 1)?.out;
+        if (outAt0 === 0 && outAt1 === 1) {
+          assignedNet = rName;
+          label = rName;
+        } else if (outAt0 === 1 && outAt1 === 0) {
+          assignedNet = getInv(rName);
+          label = `${rName}'`;
+        }
+      } else {
+        // >= 2 residual variables: minimize sub-function with QM and synthesize
+        const subTT: TruthTable = {
+          vars: [...residualVars],
+          rows: matchingRows.map((r, idx) => ({
+            index: idx,
+            inputs: residualVars.map((v) => r.inputs[allVars.indexOf(v)]),
+            out: r.out,
+          })),
+        };
+        const minSub = quineMcCluskey(subTT, 'SOP');
+        label = minSub.text;
+
+        if (minSub.expr.t === 'var') {
+          assignedNet = minSub.expr.name;
+        } else if (minSub.expr.t === 'not' && minSub.expr.a.t === 'var') {
+          assignedNet = getInv(minSub.expr.a.name);
+        } else {
+          const subNetlist = exprToNetlist(minSub.expr, { name: `mux_d${d}`, names });
+          for (const subNode of subNetlist.nodes) {
+            nodes.push(subNode);
+          }
+          assignedNet = subNetlist.outputs[0];
+        }
       }
     }
 

@@ -1,5 +1,5 @@
 /**
- * LDAM Boolean Engine — Evaluator & Equivalence Checker
+ * Aletheia Boolean Engine — Evaluator & Equivalence Checker
  * Evaluates AST against variable truth assignments, collects variables,
  * and checks Boolean equivalence by comparing truth table evaluations.
  */

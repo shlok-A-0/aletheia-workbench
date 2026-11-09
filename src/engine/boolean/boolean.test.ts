@@ -98,6 +98,23 @@ describe('Phase 1 — Boolean Engine Golden Tests', () => {
     }
   });
 
+  it('parses keywords only when separated from adjacent variable letters', () => {
+    expect(collectVars(parseExpr('COR'))).toEqual(['C', 'O', 'R']);
+    expect(collectVars(parseExpr('BAND'))).toEqual(['A', 'B', 'D', 'N']);
+    expect(isEquivalent(parseExpr('A OR B'), parseExpr('A + B'))).toBe(true);
+    expect(isEquivalent(parseExpr('A or b'), parseExpr('A + B'))).toBe(true);
+  });
+
+  it('reports parse positions in the original untrimmed expression', () => {
+    try {
+      parseExpr('  A$B');
+      throw new Error('Expected ParseError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ParseError);
+      expect((err as ParseError).position).toBe(3);
+    }
+  });
+
   // Golden Test 7: Property test on 50 random expressions
   it('Golden Test 7: Property test on 50 random expressions over 4 variables', () => {
     const vars = ['A', 'B', 'C', 'D'];
@@ -172,5 +189,14 @@ describe('Phase 1 — Boolean Engine Golden Tests', () => {
     const ttOut = truthTableFromOutputs(['A', 'B'], [0, 1, 'x', 0]);
     expect(ttOut.rows[2].out).toBe('x');
     expect(ttOut.rows[1].out).toBe(1);
+  });
+
+  it('rejects invalid, duplicate, and overlapping minterm/maxterm indices', () => {
+    expect(() => truthTableFromMinterms(['A', 'B'], [4])).toThrow(/out of range/);
+    expect(() => truthTableFromMinterms(['A', 'B'], [1, 1])).toThrow(/Duplicate/);
+    expect(() => truthTableFromMinterms(['A', 'B'], [1], [1])).toThrow(/also listed/);
+    expect(() => truthTableFromMaxterms(['A', 'B'], [-1])).toThrow(/out of range/);
+    expect(() => truthTableFromMaxterms(['A', 'B'], [2, 2])).toThrow(/Duplicate/);
+    expect(() => truthTableFromMaxterms(['A', 'B'], [2], [2])).toThrow(/also listed/);
   });
 });

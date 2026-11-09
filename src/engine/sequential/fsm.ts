@@ -1,12 +1,12 @@
 /**
- * LDAM Sequential Engine — FSM Synthesis, Analysis & State Reduction
+ * Aletheia Sequential Engine — FSM Synthesis, Analysis & State Reduction
  * Implements state table validation, state diagram extraction,
  * implication-table state reduction, state assignment (binary, gray, one-hot),
  * automated FSM design synthesis using Quine-McCluskey, and circuit reverse analysis.
  */
 
 import type { StateTable, Netlist, FFType, Step, Node, FlipFlop, Gate } from '../types';
-import { excitationTable, characteristicEquation, nextQ } from './flipflops';
+import { excitationTable, nextQ } from './flipflops';
 import { quineMcCluskey } from '../minimize/qm';
 import { truthTableFromOutputs } from '../boolean/truth-table';
 import { exprToNetlist } from '../circuit/generate';
@@ -81,6 +81,9 @@ export function validateStateTable(st: StateTable): string[] {
           `Row for state '${state}' with input '${r.input}' has output length ${r.output.length}, expected ${st.outputs.length}.`
         );
       }
+      if (!/^[01]*$/.test(r.output)) {
+        errors.push(`Row for state '${r.state}' has a non-binary output '${r.output}'.`);
+      }
 
       // Expand wildcard input string
       const matchedIndices: number[] = [];
@@ -133,16 +136,20 @@ export function stateDiagramData(st: StateTable): StateDiagramData {
     };
   });
 
-  const edges: { from: string; to: string; label: string }[] = [];
+  const edgeLabels = new Map<string, { from: string; to: string; labels: string[] }>();
   for (const r of st.rows) {
     const label = st.model === 'mealy' ? `${r.input} / ${r.output}` : r.input;
-    edges.push({
-      from: r.state,
-      to: r.next,
-      label,
-    });
+    const key = `${r.state}\u0000${r.next}`;
+    const edge = edgeLabels.get(key);
+    if (edge) edge.labels.push(label);
+    else edgeLabels.set(key, { from: r.state, to: r.next, labels: [label] });
   }
 
+  const edges = Array.from(edgeLabels.values(), ({ from, to, labels }) => ({
+    from,
+    to,
+    label: labels.join(', '),
+  }));
   return { nodes, edges };
 }
 
@@ -380,6 +387,20 @@ export function designFSM(
 ): FSMDesignResult {
   const steps: Step[] = [];
   const { codes, flops } = assignStates(st, strategy);
+  const reservedNets = new Set([
+    'CLK',
+    ...st.inputs,
+    ...Array.from({ length: flops }, (_, i) => [`Q${i}`, `qn${i}`]).flat(),
+  ]);
+  const conflictingOutput = st.outputs.find((name) => reservedNets.has(name));
+  if (conflictingOutput) {
+    throw new Error(`FSM output '${conflictingOutput}' conflicts with an internal or input net.`);
+  }
+  let internalName = 0;
+  const names = {
+    net: (prefix = 'n') => `_int_${prefix}_${++internalName}`,
+    gate: (type = 'g') => `_int_${type.toLowerCase()}_${++internalName}`,
+  };
 
   steps.push({
     title: 'State Assignment',
@@ -530,7 +551,7 @@ export function designFSM(
     flipFlopInputEquations[ffInName] = minRes.text;
 
     // Synthesize combinational logic
-    const netlistFragment = exprToNetlist(minRes.expr, { name: ffInName });
+    const netlistFragment = exprToNetlist(minRes.expr, { name: ffInName, names });
     for (const node of netlistFragment.nodes) {
       nodes.push(node);
     }
@@ -562,7 +583,7 @@ export function designFSM(
     const minRes = quineMcCluskey(tt, 'SOP');
     outputEquations[outName] = minRes.text;
 
-    const netlistFragment = exprToNetlist(minRes.expr, { name: outName });
+    const netlistFragment = exprToNetlist(minRes.expr, { name: outName, names });
     for (const node of netlistFragment.nodes) {
       nodes.push(node);
     }
@@ -578,10 +599,12 @@ export function designFSM(
     }
   }
 
-  // Add the flip-flop nodes
+  // Add the flip-flop nodes with initial values matching the reset state encoding
+  const resetCode = codes[st.reset] ?? '0'.repeat(flops);
   for (let f = 0; f < flops; f++) {
     const qName = `Q${f}`;
     const qnName = `qn${f}`;
+    const initVal = (parseInt(resetCode[flops - 1 - f], 10) || 0) as 0 | 1;
 
     switch (ffType) {
       case 'D':
@@ -594,7 +617,7 @@ export function designFSM(
           d: ffDrivingNets[`D${f}`],
           q: qName,
           qn: qnName,
-          init: 0,
+          init: initVal,
         });
         break;
       case 'T':
@@ -607,7 +630,7 @@ export function designFSM(
           t: ffDrivingNets[`T${f}`],
           q: qName,
           qn: qnName,
-          init: 0,
+          init: initVal,
         });
         break;
       case 'JK':
@@ -621,7 +644,7 @@ export function designFSM(
           k: ffDrivingNets[`K${f}`],
           q: qName,
           qn: qnName,
-          init: 0,
+          init: initVal,
         });
         break;
       case 'SR':
@@ -635,7 +658,7 @@ export function designFSM(
           r: ffDrivingNets[`R${f}`],
           q: qName,
           qn: qnName,
-          init: 0,
+          init: initVal,
         });
         break;
     }
@@ -669,7 +692,16 @@ export function designFSM(
  */
 export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
   const steps: Step[] = [];
-  const flops = netlist.nodes.filter((n) => n.kind === 'ff') as FlipFlop[];
+  const flops = (netlist.nodes.filter((n) => n.kind === 'ff') as FlipFlop[]).sort((a, b) => {
+    const ma = a.q.match(/\d+/) ?? a.id.match(/\d+/);
+    const mb = b.q.match(/\d+/) ?? b.id.match(/\d+/);
+    if (ma && mb) {
+      const na = parseInt(ma[0], 10);
+      const nb = parseInt(mb[0], 10);
+      if (na !== nb) return na - nb;
+    }
+    return a.q.localeCompare(b.q);
+  });
   const gates = netlist.nodes.filter((n) => n.kind === 'gate') as Gate[];
   const numFlops = flops.length;
   const numStates = 1 << numFlops;
@@ -683,78 +715,197 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
     detail: `Identified ${numFlops} flip-flop(s) and ${gates.length} logic gate(s). Primary inputs: {${primaryInputs.join(', ') || 'none'}}.`,
   });
 
-  // FF Equations & Output Equations
-  const flipFlopInputEquations: Record<string, string> = {};
-  const nextStateEquations: Record<string, string> = {};
-  const outputEquations: Record<string, string> = {};
+  if (numFlops === 0) {
+    return {
+      flipFlopInputEquations: {},
+      nextStateEquations: {},
+      outputEquations: {},
+      stateTable: {
+        model: 'moore',
+        inputs: [...primaryInputs],
+        outputs: [...netlist.outputs],
+        states: [],
+        reset: '',
+        rows: [],
+      },
+      unusedStates: [],
+      lockUp: false,
+      steps,
+    };
+  }
 
+  // Variables for truth tables: state variables (MSB to LSB: Q(n-1)..Q0) followed by primary inputs
+  const varNames: string[] = [];
+  for (let f = numFlops - 1; f >= 0; f--) {
+    varNames.push(flops[f].q);
+  }
+  for (const inp of primaryInputs) {
+    varNames.push(inp);
+  }
+
+  const numTotalVars = numFlops + numInputBits;
+  const totalCombos = 1 << numTotalVars;
+
+  // Identify FF input targets
+  const ffInputTargets: { name: string; driverNet?: string }[] = [];
   for (let f = 0; f < numFlops; f++) {
     const ff = flops[f];
-    const qName = ff.q;
-    flipFlopInputEquations[qName] = ff.d ?? ff.t ?? (ff.j ? `J=${ff.j}, K=${ff.k}` : 'unknown');
-    nextStateEquations[`${qName}+`] = characteristicEquation(ff.type);
+    const idx = ff.q.match(/\d+/)?.[0] ?? `${f}`;
+    switch (ff.type) {
+      case 'D':
+        ffInputTargets.push({ name: `D${idx}`, driverNet: ff.d });
+        break;
+      case 'T':
+        ffInputTargets.push({ name: `T${idx}`, driverNet: ff.t });
+        break;
+      case 'JK':
+        ffInputTargets.push({ name: `J${idx}`, driverNet: ff.j });
+        ffInputTargets.push({ name: `K${idx}`, driverNet: ff.k });
+        break;
+      case 'SR':
+        ffInputTargets.push({ name: `S${idx}`, driverNet: ff.s });
+        ffInputTargets.push({ name: `R${idx}`, driverNet: ff.r });
+        break;
+    }
   }
 
+  const ffInputVectors: Record<string, (0 | 1)[]> = {};
+  for (const target of ffInputTargets) {
+    ffInputVectors[target.name] = [];
+  }
+
+  const nextQVectors: Record<string, (0 | 1)[]> = {};
+  for (let f = 0; f < numFlops; f++) {
+    nextQVectors[`${flops[f].q}+`] = [];
+  }
+
+  const primaryOutputVectors: Record<string, (0 | 1)[]> = {};
   for (const outNet of netlist.outputs) {
-    outputEquations[outNet] = `f(${outNet})`;
+    primaryOutputVectors[outNet] = [];
   }
 
-  // Enumerate state transitions
-  const stateNames = Array.from({ length: numStates }, (_, c) => `S${c}`);
+  function resolveNetVal(net: string | undefined, evaluated: Record<string, 0 | 1>): 0 | 1 {
+    if (net === undefined) return 0;
+    if (net === '1') return 1;
+    if (net === '0') return 0;
+    return evaluated[net] ?? 0;
+  }
 
+  // Evaluate across all state and input combinations
+  for (let comboIdx = 0; comboIdx < totalCombos; comboIdx++) {
+    const inCode = comboIdx & ((1 << numInputBits) - 1);
+    const stateCode = (comboIdx >> numInputBits) & ((1 << numFlops) - 1);
+
+    const simVals: Record<string, 0 | 1> = {};
+
+    for (let b = 0; b < numInputBits; b++) {
+      const bitVal = ((inCode >> (numInputBits - 1 - b)) & 1) as 0 | 1;
+      const inputNet = primaryInputs[b];
+      if (inputNet !== undefined) simVals[inputNet] = bitVal;
+    }
+
+    for (let f = 0; f < numFlops; f++) {
+      const qBit = ((stateCode >> f) & 1) as 0 | 1;
+      simVals[flops[f].q] = qBit;
+      const qn = flops[f].qn;
+      if (qn !== undefined) {
+        simVals[qn] = (1 - qBit) as 0 | 1;
+      }
+    }
+
+    const evaluated = evaluate(netlist, simVals);
+
+    // Record FF inputs
+    for (const target of ffInputTargets) {
+      ffInputVectors[target.name].push(resolveNetVal(target.driverNet, evaluated));
+    }
+
+    // Record next state bits
+    for (let f = 0; f < numFlops; f++) {
+      const ff = flops[f];
+      const currentQ = simVals[ff.q];
+      const ffInputs: Record<string, 0 | 1> = {};
+      if (ff.d) ffInputs.D = resolveNetVal(ff.d, evaluated);
+      if (ff.t) ffInputs.T = resolveNetVal(ff.t, evaluated);
+      if (ff.j) ffInputs.J = resolveNetVal(ff.j, evaluated);
+      if (ff.k) ffInputs.K = resolveNetVal(ff.k, evaluated);
+      if (ff.s) ffInputs.S = resolveNetVal(ff.s, evaluated);
+      if (ff.r) ffInputs.R = resolveNetVal(ff.r, evaluated);
+
+      const nq = nextQ(ff.type, currentQ, ffInputs);
+      const resolvedQ = nq === 'x' ? 0 : nq;
+      nextQVectors[`${ff.q}+`].push(resolvedQ);
+    }
+
+    // Record primary outputs
+    for (const outNet of netlist.outputs) {
+      primaryOutputVectors[outNet].push(resolveNetVal(outNet, evaluated));
+    }
+  }
+
+  // Derive real minimized equations
+  const flipFlopInputEquations: Record<string, string> = {};
+  for (const target of ffInputTargets) {
+    const tt = truthTableFromOutputs(varNames, ffInputVectors[target.name]);
+    const minRes = quineMcCluskey(tt, 'SOP');
+    flipFlopInputEquations[target.name] = minRes.text;
+  }
+
+  const nextStateEquations: Record<string, string> = {};
+  for (let f = 0; f < numFlops; f++) {
+    const qKey = `${flops[f].q}+`;
+    const tt = truthTableFromOutputs(varNames, nextQVectors[qKey]);
+    const minRes = quineMcCluskey(tt, 'SOP');
+    nextStateEquations[qKey] = minRes.text;
+  }
+
+  const outputEquations: Record<string, string> = {};
+  for (const outNet of netlist.outputs) {
+    const tt = truthTableFromOutputs(varNames, primaryOutputVectors[outNet]);
+    const minRes = quineMcCluskey(tt, 'SOP');
+    outputEquations[outNet] = minRes.text;
+  }
+
+  // Determine Moore vs Mealy: Mealy if any output depends on any primary input
+  let isMealy = false;
+  if (numInputBits > 0 && netlist.outputs.length > 0) {
+    for (const outNet of netlist.outputs) {
+      for (let stateCode = 0; stateCode < numStates; stateCode++) {
+        const baseIdx = stateCode << numInputBits;
+        const firstVal = primaryOutputVectors[outNet][baseIdx];
+        for (let inCode = 1; inCode < numInputCombos; inCode++) {
+          if (primaryOutputVectors[outNet][baseIdx | inCode] !== firstVal) {
+            isMealy = true;
+            break;
+          }
+        }
+        if (isMealy) break;
+      }
+      if (isMealy) break;
+    }
+  }
+  const model: 'moore' | 'mealy' = isMealy ? 'mealy' : 'moore';
+
+  // Build state table rows
+  const stateNames = Array.from({ length: numStates }, (_, c) => `S${c}`);
   const rows: StateTable['rows'] = [];
-  const reachable = new Set<string>();
-  reachable.add('S0'); // Reset state S0
 
   for (let stateCode = 0; stateCode < numStates; stateCode++) {
     const sName = `S${stateCode}`;
-
     for (let inCode = 0; inCode < numInputCombos; inCode++) {
       const inStr = inCode.toString(2).padStart(numInputBits, '0');
+      const comboIdx = (stateCode << numInputBits) | inCode;
 
-      // Setup inputs and current FF values
-      const simVals: Record<string, 0 | 1> = {};
-      for (let b = 0; b < numInputBits; b++) {
-        const bitVal = ((inCode >> (numInputBits - 1 - b)) & 1) as 0 | 1;
-        simVals[primaryInputs[b]] = bitVal;
-      }
-      for (let f = 0; f < numFlops; f++) {
-        const qBit = ((stateCode >> (numFlops - 1 - f)) & 1) as 0 | 1;
-        simVals[flops[f].q] = qBit;
-        const qn = flops[f].qn;
-        if (qn) simVals[qn] = qBit === 1 ? 0 : 1;
-      }
-
-      // Evaluate combinational nets
-      const evaluated = evaluate(netlist, simVals);
-
-      // Compute next Q for each flip flop
       let nextStateCode = 0;
       for (let f = 0; f < numFlops; f++) {
-        const ff = flops[f];
-        const currentQ = simVals[ff.q];
-        const ffInputs: Record<string, 0 | 1> = {};
-        if (ff.d) ffInputs.D = evaluated[ff.d] ?? 0;
-        if (ff.t) ffInputs.T = evaluated[ff.t] ?? 0;
-        if (ff.j) ffInputs.J = evaluated[ff.j] ?? 0;
-        if (ff.k) ffInputs.K = evaluated[ff.k] ?? 0;
-        if (ff.s) ffInputs.S = evaluated[ff.s] ?? 0;
-        if (ff.r) ffInputs.R = evaluated[ff.r] ?? 0;
-
-        const nq = nextQ(ff.type, currentQ, ffInputs);
-        const resolvedQ = nq === 'x' ? 0 : nq;
-        nextStateCode |= resolvedQ << (numFlops - 1 - f);
+        const nq = nextQVectors[`${flops[f].q}+`][comboIdx];
+        nextStateCode |= nq << f;
       }
-
       const nextStateName = `S${nextStateCode}`;
-      if (reachable.has(sName)) {
-        reachable.add(nextStateName);
-      }
 
-      // Compute primary outputs
       let outStr = '';
       for (const outNet of netlist.outputs) {
-        outStr += (evaluated[outNet] ?? 0).toString();
+        outStr += primaryOutputVectors[outNet][comboIdx].toString();
       }
 
       rows.push({
@@ -766,7 +917,18 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
     }
   }
 
-  // Propagate full reachable set
+  // Reset state from flip-flop init values
+  let resetCode = 0;
+  for (let f = 0; f < numFlops; f++) {
+    const initBit = (flops[f].init ?? 0) as 0 | 1;
+    resetCode |= initBit << f;
+  }
+  const resetStateName = `S${resetCode}`;
+
+  // Reachable states from reset
+  const reachable = new Set<string>();
+  reachable.add(resetStateName);
+
   let reachableChanged = true;
   while (reachableChanged) {
     reachableChanged = false;
@@ -780,20 +942,42 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
 
   const unusedStates = stateNames.filter((s) => !reachable.has(s));
 
-  // Lock-up check: does any state in the reachable set form an inescapable single-state trap
-  // with no way to progress, or have non-deterministic/deadlock transitions?
+  // Lock-up detection:
+  // 1. Any state (unused or reachable) that can NEVER re-enter the reachable set
+  const canReachReachable = new Set<string>(reachable);
+  let backChanged = true;
+  while (backChanged) {
+    backChanged = false;
+    for (const r of rows) {
+      if (canReachReachable.has(r.next) && !canReachReachable.has(r.state)) {
+        canReachReachable.add(r.state);
+        backChanged = true;
+      }
+    }
+  }
+
   let lockUp = false;
-  for (const s of reachable) {
-    const sRows = rows.filter((r) => r.state === s);
-    if (sRows.every((r) => r.next === s && r.next !== 'S0')) {
+  for (const s of stateNames) {
+    if (!canReachReachable.has(s)) {
       lockUp = true;
       break;
     }
   }
 
+  // 2. Plus any state in a multi-state reachable machine that loops to itself on every input without exit
+  if (!lockUp && reachable.size > 1) {
+    for (const s of reachable) {
+      const sRows = rows.filter((r) => r.state === s);
+      if (sRows.length > 0 && sRows.every((r) => r.next === s)) {
+        lockUp = true;
+        break;
+      }
+    }
+  }
+
   steps.push({
     title: 'State Reachability Analysis',
-    detail: `Found ${reachable.size} reachable state(s) and ${unusedStates.length} unused state(s). Lockup detected: ${lockUp}.`,
+    detail: `Found ${reachable.size} reachable state(s) and ${unusedStates.length} unused state(s). Lockup detected: ${lockUp}. Model: ${model}.`,
   });
 
   return {
@@ -801,11 +985,11 @@ export function analyzeCircuit(netlist: Netlist): CircuitAnalysisResult {
     nextStateEquations,
     outputEquations,
     stateTable: {
-      model: 'mealy',
+      model,
       inputs: [...primaryInputs],
       outputs: [...netlist.outputs],
       states: stateNames,
-      reset: 'S0',
+      reset: resetStateName,
       rows,
     },
     unusedStates,

@@ -1,11 +1,24 @@
 /**
- * LDAM Circuit Engine — Combinational Simulator & Verification
+ * Aletheia Circuit Engine — Combinational Simulator & Verification
  * Performs topological sort gate evaluation, combinational cycle detection,
  * truth table extraction, and equivalence verification against golden TruthTables.
  */
 
 import type { Netlist, NetId, TruthTable, Gate, Const } from '../types';
 import { CombinationalLoopError } from './generate';
+
+export function gateValue(type: Gate['type'], inVals: (0 | 1)[]): 0 | 1 {
+  switch (type) {
+    case 'AND': return inVals.every((v) => v === 1) ? 1 : 0;
+    case 'OR': return inVals.some((v) => v === 1) ? 1 : 0;
+    case 'NOT': return inVals[0] === 1 ? 0 : 1;
+    case 'NAND': return inVals.every((v) => v === 1) ? 0 : 1;
+    case 'NOR': return inVals.some((v) => v === 1) ? 0 : 1;
+    case 'XOR': return (inVals.reduce<number>((acc, v) => acc ^ v, 0) & 1) as 0 | 1;
+    case 'XNOR': return ((inVals.reduce<number>((acc, v) => acc ^ v, 0) ^ 1) & 1) as 0 | 1;
+    case 'BUF': return inVals[0] ?? 0;
+  }
+}
 
 /**
  * Evaluates the netlist in topological order given primary input assignments.
@@ -41,42 +54,7 @@ export function evaluate(
 
       if (allInputsReady) {
         const inVals = gate.inputs.map((net) => values[net]);
-        let outVal: 0 | 1 = 0;
-
-        switch (gate.type) {
-          case 'AND':
-            outVal = inVals.every((v) => v === 1) ? 1 : 0;
-            break;
-          case 'OR':
-            outVal = inVals.some((v) => v === 1) ? 1 : 0;
-            break;
-          case 'NOT':
-            outVal = inVals[0] === 1 ? 0 : 1;
-            break;
-          case 'NAND':
-            outVal = inVals.every((v) => v === 1) ? 0 : 1;
-            break;
-          case 'NOR':
-            outVal = inVals.some((v) => v === 1) ? 0 : 1;
-            break;
-          case 'XOR': {
-            let acc = 0;
-            for (const v of inVals) acc ^= v;
-            outVal = (acc & 1) as 0 | 1;
-            break;
-          }
-          case 'XNOR': {
-            let acc = 0;
-            for (const v of inVals) acc ^= v;
-            outVal = ((acc ^ 1) & 1) as 0 | 1;
-            break;
-          }
-          case 'BUF':
-            outVal = inVals[0] ?? 0;
-            break;
-        }
-
-        values[gate.output] = outVal;
+        values[gate.output] = gateValue(gate.type, inVals);
         remainingGates.delete(gIdx);
         progressed = true;
       }
@@ -153,5 +131,34 @@ export function verify(
     ok: mismatches.length === 0,
     mismatches,
   };
+}
+
+/**
+ * Returns total count of gates in a netlist.
+ */
+export function gateCount(netlist: Netlist | null): number {
+  return netlist?.nodes.filter((node) => node.kind === 'gate').length ?? 0;
+}
+
+/**
+ * Computes maximum combinational gate depth (levels) from inputs to outputs.
+ * Returns null if netlist contains sequential flip-flops or unexpanded blocks.
+ */
+export function pathDepth(netlist: Netlist | null): number | null {
+  if (!netlist || netlist.nodes.some((node) => node.kind === 'ff' || node.kind === 'block')) return null;
+  const depthByNet = new Map(netlist.inputs.map((net) => [net, 0]));
+  const gates = netlist.nodes.filter((node) => node.kind === 'gate') as Gate[];
+  let remaining = [...gates];
+  let progressed = true;
+  while (remaining.length > 0 && progressed) {
+    progressed = false;
+    remaining = remaining.filter((gate) => {
+      if (!gate.inputs.every((net) => depthByNet.has(net))) return true;
+      depthByNet.set(gate.output, 1 + Math.max(0, ...gate.inputs.map((net) => depthByNet.get(net) ?? 0)));
+      progressed = true;
+      return false;
+    });
+  }
+  return Math.max(0, ...netlist.outputs.map((net) => depthByNet.get(net) ?? 0));
 }
 

@@ -1,5 +1,5 @@
 /**
- * LDAM Sequential Engine — Module Exports
+ * Aletheia Sequential Engine — Module Exports
  */
 
 export * from './flipflops';

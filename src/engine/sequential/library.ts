@@ -1,5 +1,5 @@
 /**
- * LDAM Sequential Engine — Standard Sequential Circuits Library
+ * Aletheia Sequential Engine — Standard Sequential Circuits Library
  * Gate/Flip-flop level synthesizers for standard sequential building blocks:
  * Synchronous/Asynchronous Counters, Mod-N Counters, Ring & Johnson Counters,
  * Shift Registers (SISO, SIPO, PISO, Universal), and unused state analysis.
@@ -8,35 +8,45 @@
 import type { Netlist, Node, FlipFlop } from '../types';
 import { stepClock } from './simulate-seq';
 
-let seqNetCounter = 0;
-function sNet(prefix = 'sn'): string {
-  return `${prefix}_${++seqNetCounter}`;
+export interface SeqNameGenerator {
+  net(prefix?: string): string;
+  id(t?: string): string;
 }
 
-let seqIdCounter = 0;
-function sId(t = 'node'): string {
-  return `${t}_${++seqIdCounter}`;
+export function createSeqNameGenerator(): SeqNameGenerator {
+  let seqNetCounter = 0;
+  let seqIdCounter = 0;
+  return {
+    net: (prefix = 'sn') => `${prefix}_${++seqNetCounter}`,
+    id: (t = 'node') => `${t}_${++seqIdCounter}`,
+  };
 }
 
 const qOutputs = (bits: number): string[] => Array.from({ length: bits }, (_, i) => `Q${bits - 1 - i}`);
 
 /**
  * Synchronous Binary Counter (2, 3, or 4 bits).
- * Generates an up or up/down counter using T or JK flip-flops.
+ * Generates an up, down, or up/down counter using T or JK flip-flops.
  */
 export function syncCounter(
   bits = 3,
-  dir: 'up' | 'down' = 'up',
-  ffType: 'T' | 'JK' = 'T'
+  dir: 'up' | 'down' | 'updown' = 'up',
+  ffType: 'T' | 'JK' = 'T',
+  names = createSeqNameGenerator()
 ): Netlist {
-  const inputs: string[] = ['CLK'];
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
+  const inputs: string[] = dir === 'updown' ? ['CLK', 'UP'] : ['CLK'];
   const outputs = qOutputs(bits);
 
   const nodes: Node[] = [];
   const const1 = sNet('const_1');
   nodes.push({ kind: 'const', id: sId('c1'), value: 1, output: const1 });
 
-  // T0 / (J0, K0) is always 1
+  // Pre-generate qn net names for each flip-flop so complement nets are explicitly driven
+  const qnNames = Array.from({ length: bits }, (_, i) => sNet(`qn${i}`));
+
+  // Stage 0: T0 / (J0, K0) is always 1 (toggles every cycle)
   if (ffType === 'T') {
     nodes.push({
       kind: 'ff',
@@ -46,7 +56,7 @@ export function syncCounter(
       clk: 'CLK',
       t: const1,
       q: 'Q0',
-      qn: sNet('qn0'),
+      qn: qnNames[0],
       init: 0,
     });
   } else {
@@ -59,29 +69,80 @@ export function syncCounter(
       j: const1,
       k: const1,
       q: 'Q0',
-      qn: sNet('qn0'),
+      qn: qnNames[0],
       init: 0,
     });
   }
 
-  let prevTerm = dir === 'up' ? 'Q0' : sNet('qn0');
+  let notUp: string | null = null;
+  if (dir === 'updown') {
+    notUp = sNet('not_UP');
+    nodes.push({ kind: 'gate', id: sId('NOT'), type: 'NOT', inputs: ['UP'], output: notUp });
+  }
+
+  let prevUpTerm = 'Q0';
+  let prevDownTerm = qnNames[0];
 
   for (let i = 1; i < bits; i++) {
     const qName = `Q${i}`;
-    const qnName = sNet(`qn${i}`);
-    const tNet = i === 1 ? prevTerm : sNet(`t_${i}`);
+    const qnName = qnNames[i];
 
     if (i > 1) {
-      // AND with previous stage output
-      const trigger = dir === 'up' ? `Q${i - 1}` : sNet(`qn${i - 1}`);
+      if (dir === 'up' || dir === 'updown') {
+        const nextUp = sNet(`up_chain_${i}`);
+        nodes.push({
+          kind: 'gate',
+          id: sId('AND'),
+          type: 'AND',
+          inputs: [prevUpTerm, `Q${i - 1}`],
+          output: nextUp,
+        });
+        prevUpTerm = nextUp;
+      }
+      if (dir === 'down' || dir === 'updown') {
+        const nextDown = sNet(`down_chain_${i}`);
+        nodes.push({
+          kind: 'gate',
+          id: sId('AND'),
+          type: 'AND',
+          inputs: [prevDownTerm, qnNames[i - 1]],
+          output: nextDown,
+        });
+        prevDownTerm = nextDown;
+      }
+    }
+
+    let tNet: string;
+    if (dir === 'up') {
+      tNet = prevUpTerm;
+    } else if (dir === 'down') {
+      tNet = prevDownTerm;
+    } else {
+      // updown: T_i = (UP & prevUpTerm) | (~UP & prevDownTerm)
+      const upTerm = sNet(`up_term_${i}`);
       nodes.push({
         kind: 'gate',
         id: sId('AND'),
         type: 'AND',
-        inputs: [prevTerm, trigger],
+        inputs: ['UP', prevUpTerm],
+        output: upTerm,
+      });
+      const downTerm = sNet(`down_term_${i}`);
+      nodes.push({
+        kind: 'gate',
+        id: sId('AND'),
+        type: 'AND',
+        inputs: [notUp!, prevDownTerm],
+        output: downTerm,
+      });
+      tNet = sNet(`t_${i}`);
+      nodes.push({
+        kind: 'gate',
+        id: sId('OR'),
+        type: 'OR',
+        inputs: [upTerm, downTerm],
         output: tNet,
       });
-      prevTerm = tNet;
     }
 
     if (ffType === 'T') {
@@ -122,10 +183,63 @@ export function syncCounter(
 }
 
 /**
+ * Ripple Counter (Asynchronous Counter).
+ * Each stage's clock is the previous stage's Q (for up) or Qn (for down),
+ * using falling-edge triggered flip-flops.
+ */
+export function rippleCounter(
+  bits = 4,
+  dir: 'up' | 'down' = 'up',
+  names = createSeqNameGenerator()
+): Netlist {
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
+  const inputs = ['CLK'];
+  const outputs = qOutputs(bits);
+  const nodes: Node[] = [];
+
+  const const1 = sNet('const_1');
+  nodes.push({ kind: 'const', id: sId('c1'), value: 1, output: const1 });
+
+  const qnNames = Array.from({ length: bits }, (_, i) => sNet(`qn${i}`));
+
+  for (let i = 0; i < bits; i++) {
+    const qName = `Q${i}`;
+    const qnName = qnNames[i];
+    const clkNet = i === 0 ? 'CLK' : (dir === 'up' ? `Q${i - 1}` : qnNames[i - 1]);
+
+    nodes.push({
+      kind: 'ff',
+      id: sId(`ff_ripple_${i}`),
+      type: 'T',
+      edge: 'falling',
+      clk: clkNet,
+      t: const1,
+      q: qName,
+      qn: qnName,
+      init: 0,
+    });
+  }
+
+  return {
+    name: `ripple_${dir}_${bits}bit`,
+    inputs,
+    outputs,
+    clock: 'CLK',
+    nodes,
+  };
+}
+
+/**
  * Mod-N Counter (N = 3..15) with synchronous/asynchronous clear return-to-zero logic.
  */
-export function modNCounter(n: number): Netlist {
-  const bits = Math.ceil(Math.log2(n));
+export function modNCounter(
+  n: number,
+  bits = Math.ceil(Math.log2(n)),
+  names = createSeqNameGenerator()
+): Netlist {
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
   const inputs: string[] = ['CLK'];
   const outputs = qOutputs(bits);
 
@@ -136,7 +250,7 @@ export function modNCounter(n: number): Netlist {
   nodes.push({ kind: 'const', id: sId('c0'), value: 0, output: const0 });
 
   // When counter reaches N - 1 (or N for async clear), detect condition
-  // Standard LDAM synchronous Mod-N: next state is (Q + 1) mod N.
+  // Standard synchronous Mod-N: next state is (Q + 1) mod N.
   // D flip-flops: D_i = nextStateFunction(Q).
   const numStates = 1 << bits;
 
@@ -202,7 +316,9 @@ export function modNCounter(n: number): Netlist {
  * Ring Counter (n bits).
  * Circulates a single '1' bit through a ring shift register.
  */
-export function ringCounter(bits = 4): Netlist {
+export function ringCounter(bits = 4, names = createSeqNameGenerator()): Netlist {
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
   const inputs = ['CLK'];
   const outputs = qOutputs(bits);
 
@@ -238,7 +354,9 @@ export function ringCounter(bits = 4): Netlist {
  * MSB receives the complement of LSB: Q(n-1) <= ~Q(0), Q(i) <= Q(i+1).
  * Cycles through 2*n states (e.g., 3-bit: 000, 100, 110, 111, 011, 001).
  */
-export function johnsonCounter(bits = 3): Netlist {
+export function johnsonCounter(bits = 3, names = createSeqNameGenerator()): Netlist {
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
   const inputs = ['CLK'];
   const outputs = qOutputs(bits);
 
@@ -279,8 +397,11 @@ export function johnsonCounter(bits = 3): Netlist {
  */
 export function shiftRegister(
   type: 'SISO' | 'SIPO' | 'PISO' | 'universal',
-  bits = 4
+  bits = 4,
+  names = createSeqNameGenerator()
 ): Netlist {
+  const sNet = (prefix = 'sn') => names.net(prefix);
+  const sId = (t = 'node') => names.id(t);
   const nodes: Node[] = [];
 
   switch (type) {

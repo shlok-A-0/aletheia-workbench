@@ -1,52 +1,105 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { ChatPanel } from './ui/ChatPanel';
+import { useStore } from './store';
+import { loadLastProject, saveLastProject } from './store/project';
 import './App.css';
 
 interface NavItem {
   path: string;
   label: string;
-  phase: string;
   icon: string;
 }
 
 const navItems: NavItem[] = [
-  { path: '/input', label: 'Boolean Input', phase: 'P1', icon: '⌨️' },
-  { path: '/truth-table', label: 'Truth Table', phase: 'P1', icon: '📊' },
-  { path: '/kmap', label: 'K-Map & QM', phase: 'P2', icon: '🗺️' },
-  { path: '/circuit', label: 'Circuit Schematic', phase: 'P3', icon: '⚡' },
-  { path: '/sequential', label: 'Sequential / FSM', phase: 'P4', icon: '🔄' },
-  { path: '/timing', label: 'Timing & Hazards', phase: 'P5', icon: '⏱️' },
-  { path: '/cost-power', label: 'IC Cost & Power', phase: 'P6', icon: '🏷️' },
-  { path: '/faults', label: 'Fault Testing', phase: 'P6', icon: '🔍' },
-  { path: '/dashboard', label: 'Dashboard', phase: 'P8', icon: '📈' },
-  { path: '/selftest', label: 'Self-Test Suite', phase: 'P8', icon: '🧪' },
+  { path: '/input', label: 'Boolean Input', icon: '⌨️' },
+  { path: '/truth-table', label: 'Truth Table', icon: '📊' },
+  { path: '/kmap', label: 'K-Map & QM', icon: '🗺️' },
+  { path: '/circuit', label: 'Circuit Schematic', icon: '⚡' },
+  { path: '/sequential', label: 'Sequential / FSM', icon: '🔄' },
+  { path: '/timing', label: 'Timing & Hazards', icon: '⏱️' },
+  { path: '/cost-power', label: 'IC Cost & Power', icon: '🏷️' },
+  { path: '/faults', label: 'Fault Testing', icon: '🔍' },
+  { path: '/dashboard', label: 'Dashboard', icon: '📈' },
+  { path: '/help', label: 'Concept Guide', icon: '📚' },
 ];
 
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
+    try {
+      const saved = window.localStorage.getItem('ldam:theme');
+      return saved === 'light' || saved === 'dark' ? saved : 'system';
+    } catch {
+      return 'system';
+    }
+  });
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const location = useLocation();
 
   const currentNav = navItems.find((item) => item.path === location.pathname);
+
+  useEffect(() => {
+    try {
+      const savedProject = loadLastProject();
+      if (savedProject) useStore.setState(savedProject);
+    } catch (error) {
+      setPersistenceError(error instanceof Error ? error.message : String(error));
+    }
+  }, []);
+
+  useEffect(() => {
+    let timer = 0;
+    const unsubscribe = useStore.subscribe((state) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        try {
+          saveLastProject(state);
+          setPersistenceError(null);
+        } catch (error) {
+          setPersistenceError(error instanceof Error ? error.message : String(error));
+        }
+      }, 300);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const applyTheme = () => {
+      document.documentElement.dataset.theme = theme === 'system'
+        ? (media.matches ? 'light' : 'dark')
+        : theme;
+    };
+    applyTheme();
+    media.addEventListener('change', applyTheme);
+    return () => media.removeEventListener('change', applyTheme);
+  }, [theme]);
+
+  const cycleTheme = () => {
+    const next = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+    setTheme(next);
+    try {
+      if (next === 'system') window.localStorage.removeItem('ldam:theme');
+      else window.localStorage.setItem('ldam:theme', next);
+    } catch (error) {
+      setPersistenceError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   return (
     <div className="app-layout">
       {/* Top Header */}
       <header className="app-header">
         <div className="header-brand">
-          <div className="logo-badge">LDAM</div>
+          <div className="logo-badge" aria-hidden="true">A</div>
           <div className="brand-text">
-            <h2>Logic Design & Applications</h2>
-            <span>Digital Circuit Analyzer & Synthesis Platform</span>
+            <h2>Aletheia</h2>
+            <span>Logic Design &amp; Microprocessor Workbench</span>
           </div>
-        </div>
-
-        <div className="header-center">
-          {currentNav && (
-            <div className="current-phase-pill">
-              <span className="pill-phase">{currentNav.phase}</span>
-              <span className="pill-name">{currentNav.label}</span>
-            </div>
-          )}
         </div>
 
         <div className="header-actions">
@@ -55,9 +108,18 @@ export const App: React.FC = () => {
             Pure TS Engine: Active
           </div>
           <button
+            className="theme-toggle"
+            onClick={cycleTheme}
+            aria-label={`Theme: ${theme}. Change theme`}
+            title={`Theme: ${theme}`}
+          >
+            {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '🌓'} Theme
+          </button>
+          <button
             className={`btn-chat-toggle ${chatOpen ? 'active' : ''}`}
             onClick={() => setChatOpen(!chatOpen)}
             title="Toggle AI Study Assistant"
+            aria-expanded={chatOpen}
           >
             🤖 AI Assistant
           </button>
@@ -78,7 +140,6 @@ export const App: React.FC = () => {
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-label">{item.label}</span>
-                <span className="nav-phase-tag">{item.phase}</span>
               </NavLink>
             ))}
           </nav>
@@ -90,49 +151,19 @@ export const App: React.FC = () => {
         </main>
 
         {/* Collapsible Right Chat Panel */}
-        <aside className={`app-chat-panel ${chatOpen ? 'open' : 'closed'}`}>
-          <div className="chat-header">
-            <div className="chat-title">
-              <span>🤖</span> AI Study Assistant
-            </div>
-            <button className="chat-close" onClick={() => setChatOpen(false)}>
-              ✕
-            </button>
-          </div>
-          <div className="chat-content">
-            <div className="chat-intro">
-              <p>
-                <strong>Course Assistant (Phase 7)</strong>
-              </p>
-              <p className="chat-desc">
-                Ask step-by-step questions about Boolean minimization, K-map grouping, excitation
-                equations, or circuit timing.
-              </p>
-            </div>
-            <div className="chat-placeholder-box">
-              <span className="icon">💡</span>
-              <span>Contextually linked to active design on <em>{currentNav?.label || 'workspace'}</em></span>
-            </div>
-            <div className="suggested-prompts">
-              <span className="prompt-label">Quick Prompts:</span>
-              <button className="prompt-chip">"Why is this group minimal?"</button>
-              <button className="prompt-chip">"Show step-by-step excitation derivation"</button>
-              <button className="prompt-chip">"Explain static-1 hazard in this circuit"</button>
-            </div>
-          </div>
-          <div className="chat-footer">
-            <input
-              type="text"
-              placeholder="Ask a question about this circuit..."
-              className="chat-input"
-              disabled
-            />
-            <button className="chat-send" disabled>
-              Send
-            </button>
-          </div>
-        </aside>
+        <ChatPanel
+          open={chatOpen}
+          page={location.pathname}
+          pageLabel={currentNav?.label ?? 'workspace'}
+          onClose={() => setChatOpen(false)}
+        />
       </div>
+      {persistenceError && (
+        <div className="persistence-alert" role="alert">
+          Automatic session save failed: {persistenceError}
+          <button onClick={() => setPersistenceError(null)} aria-label="Dismiss save warning">×</button>
+        </div>
+      )}
     </div>
   );
 };

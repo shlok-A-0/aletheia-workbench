@@ -1,5 +1,5 @@
 /**
- * LDAM Sequential Engine — Flip-Flop Models & Tables
+ * Aletheia Sequential Engine — Flip-Flop Models & Tables
  * Implements characteristic & excitation tables, characteristic equations,
  * and next-state transition logic for SR, D, JK, and T flip-flops.
  */

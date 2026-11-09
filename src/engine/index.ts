@@ -1,5 +1,5 @@
 /**
- * LDAM Project — Core Logic Engine
+ * Aletheia — Core Logic Engine
  * Re-exports data contracts and core engine modules.
  */
 
@@ -8,5 +8,5 @@ export * from './boolean';
 export * from './minimize';
 export * from './circuit';
 export * from './sequential';
-
-
+export * from './timing';
+export * from './analysis';

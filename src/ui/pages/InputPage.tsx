@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import {
@@ -12,11 +12,12 @@ import {
   simplifyAlgebraic,
   ParseError,
 } from '../../engine/boolean';
-import type { Step, TruthTable } from '../../engine/types';
+import type { Expr, Step, TruthTable } from '../../engine/types';
 
 export const InputPage: React.FC = () => {
   const navigate = useNavigate();
   const {
+    input,
     rawInput,
     inputMode,
     truthTable,
@@ -33,11 +34,12 @@ export const InputPage: React.FC = () => {
     setDontCaresStr,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'expr' | 'minterms' | 'maxterms' | 'table'>(inputMode);
-  const [exprText, setExprText] = useState(rawInput);
+  const initialTab = input.mode === 'expression' ? 'expr' : input.mode;
+  const [activeTab, setActiveTab] = useState<'expr' | 'minterms' | 'maxterms' | 'table'>(initialTab);
+  const [exprText, setExprText] = useState(input.mode === 'expression' ? input.raw : "A'B + C");
 
   // Minterms / Maxterms state
-  const [numVars, setNumVars] = useState<number>(3);
+  const [numVars, setNumVars] = useState<number>(Math.max(2, vars.length || 3));
   const [mInput, setMInput] = useState(mintermsStr);
   const [maxInput, setMaxInput] = useState(maxtermsStr);
   const [dInput, setDInput] = useState(dontCaresStr);
@@ -49,10 +51,15 @@ export const InputPage: React.FC = () => {
     }
     return Array(1 << numVars).fill(0);
   });
+  const visibleTableOutputs = useMemo(
+    () => Array.from({ length: 1 << numVars }, (_, index) => tableOutputs[index] ?? 0),
+    [numVars, tableOutputs]
+  );
 
   // Algebraic Simplification State
   const [simpSteps, setSimpSteps] = useState<Step[] | null>(null);
   const [simpResultText, setSimpResultText] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   // Purely derived validation state
   const validation = useMemo(() => {
@@ -66,6 +73,13 @@ export const InputPage: React.FC = () => {
     try {
       const ast = parseExpr(trimmed);
       const vList = collectVars(ast);
+      if (vList.length > 8) {
+        return {
+          error: 'The engine supports at most 8 variables.',
+          detectedVars: vList,
+          ast,
+        };
+      }
       return {
         error: null,
         detectedVars: vList.length > 0 ? vList : ['A'],
@@ -79,6 +93,17 @@ export const InputPage: React.FC = () => {
       };
     }
   }, [activeTab, exprText, vars]);
+
+  useEffect(() => {
+    if (activeTab === 'expr') {
+      if (inputMode !== 'expr' || rawInput !== exprText) setInput(exprText, 'expr');
+      if (validation.error && useStore.getState().parsedExpr !== null) setParsedExpr(null);
+    } else {
+      const raw = activeTab === 'minterms' ? mInput : activeTab === 'maxterms' ? maxInput : 'Direct Table';
+      if (inputMode !== activeTab || (activeTab !== 'table' && rawInput !== raw)) setInput(raw, activeTab);
+      if (useStore.getState().parsedExpr !== null) setParsedExpr(null);
+    }
+  }, [activeTab, exprText, mInput, maxInput, dInput, numVars, tableOutputs, validation.error, inputMode, rawInput, setInput, setParsedExpr]);
 
   const insertOperator = (op: string) => {
     setExprText((prev) => prev + op);
@@ -96,12 +121,11 @@ export const InputPage: React.FC = () => {
   };
 
   const parseNumberList = (str: string): number[] => {
-    return str
-      .split(/[\s,]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-      .map((s) => Number.parseInt(s, 10))
-      .filter((n) => !Number.isNaN(n));
+    const tokens = str.split(/[\s,]+/).filter((token) => token.length > 0);
+    return tokens.map((token) => {
+      if (!/^\d+$/.test(token)) throw new Error(`Invalid index '${token}'. Enter non-negative whole numbers.`);
+      return Number(token);
+    });
   };
 
   const getVariableNames = (count: number): string[] => {
@@ -110,43 +134,48 @@ export const InputPage: React.FC = () => {
   };
 
   const handleGenerateAndProceed = () => {
-    let generatedTT: TruthTable;
+    try {
+      if (numVars > 8) throw new Error('The engine supports at most 8 variables.');
+      let generatedTT: TruthTable;
+      let parsedExpr: Expr | null = null;
 
-    if (activeTab === 'expr') {
-      const ast = parseExpr(exprText);
-      const vList = collectVars(ast);
-      const finalVars = vList.length > 0 ? vList : ['A'];
-      generatedTT = truthTableFromExpr(ast, finalVars);
-      setInput(exprText, 'expr');
-      setParsedExpr(ast);
-      setVars(finalVars);
-    } else if (activeTab === 'minterms') {
-      const vList = getVariableNames(numVars);
-      const minterms = parseNumberList(mInput);
-      const dontCares = parseNumberList(dInput);
-      generatedTT = truthTableFromMinterms(vList, minterms, dontCares);
-      setInput(mInput, 'minterms');
-      setMintermsStr(mInput);
-      setDontCaresStr(dInput);
-      setVars(vList);
-    } else if (activeTab === 'maxterms') {
-      const vList = getVariableNames(numVars);
-      const maxterms = parseNumberList(maxInput);
-      const dontCares = parseNumberList(dInput);
-      generatedTT = truthTableFromMaxterms(vList, maxterms, dontCares);
-      setInput(maxInput, 'maxterms');
-      setMaxtermsStr(maxInput);
-      setDontCaresStr(dInput);
-      setVars(vList);
-    } else {
-      const vList = getVariableNames(numVars);
-      generatedTT = truthTableFromOutputs(vList, tableOutputs);
-      setInput('Direct Table', 'table');
-      setVars(vList);
+      if (activeTab === 'expr') {
+        const ast = parseExpr(exprText);
+        const vList = collectVars(ast);
+        const finalVars = vList.length > 0 ? vList : ['A'];
+        if (finalVars.length > 8) throw new Error('The engine supports at most 8 variables.');
+        generatedTT = truthTableFromExpr(ast, finalVars);
+        setInput(exprText, 'expr');
+        parsedExpr = ast;
+        setVars(finalVars);
+      } else if (activeTab === 'minterms') {
+        const vList = getVariableNames(numVars);
+        generatedTT = truthTableFromMinterms(vList, parseNumberList(mInput), parseNumberList(dInput));
+        setInput(mInput, 'minterms');
+        setMintermsStr(mInput);
+        setDontCaresStr(dInput);
+        setVars(vList);
+      } else if (activeTab === 'maxterms') {
+        const vList = getVariableNames(numVars);
+        generatedTT = truthTableFromMaxterms(vList, parseNumberList(maxInput), parseNumberList(dInput));
+        setInput(maxInput, 'maxterms');
+        setMaxtermsStr(maxInput);
+        setDontCaresStr(dInput);
+        setVars(vList);
+      } else {
+        const vList = getVariableNames(numVars);
+        generatedTT = truthTableFromOutputs(vList, visibleTableOutputs);
+        setInput('Direct Table', 'table');
+        setVars(vList);
+      }
+
+      setParsedExpr(parsedExpr);
+      setTruthTable(generatedTT);
+      setInputError(null);
+      navigate('/truth-table');
+    } catch (err) {
+      setInputError(err instanceof Error ? err.message : String(err));
     }
-
-    setTruthTable(generatedTT);
-    navigate('/truth-table');
   };
 
   const toggleOutputCell = (index: number) => {
@@ -166,7 +195,6 @@ export const InputPage: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div className="badge">Phase 1: Input Specification</div>
         <h1>Boolean Function & Input Specification</h1>
         <p className="subtitle">
           Specify your logic function through algebraic formulas, standard minterm/maxterm
@@ -249,7 +277,7 @@ export const InputPage: React.FC = () => {
 
           {/* Presets */}
           <div className="presets-container">
-            <span className="toolbar-label">LDAM Lab Presets:</span>
+            <span className="toolbar-label">Logic Design Presets:</span>
             <button className="preset-chip" onClick={() => loadPreset('Adder', 'A ^ B ^ C')}>
               Full Adder Sum (A ^ B ^ C)
             </button>
@@ -308,7 +336,7 @@ export const InputPage: React.FC = () => {
           <div className="var-count-selector">
             <label>Number of Variables (n):</label>
             <div className="count-btns">
-              {[2, 3, 4, 5, 6].map((cnt) => (
+              {[2, 3, 4, 5, 6, 7, 8].map((cnt) => (
                 <button
                   key={cnt}
                   className={`btn-count ${numVars === cnt ? 'active' : ''}`}
@@ -354,7 +382,7 @@ export const InputPage: React.FC = () => {
           <div className="var-count-selector">
             <label>Number of Variables (n):</label>
             <div className="count-btns">
-              {[2, 3, 4, 5, 6].map((cnt) => (
+              {[2, 3, 4, 5, 6, 7, 8].map((cnt) => (
                 <button
                   key={cnt}
                   className={`btn-count ${numVars === cnt ? 'active' : ''}`}
@@ -401,7 +429,7 @@ export const InputPage: React.FC = () => {
           <div className="var-count-selector">
             <label>Variables:</label>
             <div className="count-btns">
-              {[2, 3, 4].map((cnt) => (
+              {[2, 3, 4, 5, 6, 7, 8].map((cnt) => (
                 <button
                   key={cnt}
                   className={`btn-count ${numVars === cnt ? 'active' : ''}`}
@@ -429,7 +457,7 @@ export const InputPage: React.FC = () => {
               </thead>
               <tbody>
                 {Array.from({ length: 1 << numVars }).map((_, idx) => {
-                  const outVal = tableOutputs[idx] ?? 0;
+                  const outVal = visibleTableOutputs[idx];
                   return (
                     <tr key={idx}>
                       <td className="row-idx">{idx}</td>
@@ -456,10 +484,11 @@ export const InputPage: React.FC = () => {
 
       {/* Action Footer */}
       <div className="action-footer">
+        {inputError && <div className="error-banner" role="alert">{inputError}</div>}
         <button
           className="btn-primary-large"
           onClick={handleGenerateAndProceed}
-          disabled={activeTab === 'expr' && Boolean(validation.error)}
+          disabled={(activeTab === 'expr' && Boolean(validation.error)) || numVars > 8}
         >
           🚀 Analyze & Generate Truth Table →
         </button>

@@ -56,7 +56,6 @@ export const TruthTablePage: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div className="badge">Phase 1: Truth Table & Canonical Forms</div>
         <h1>Truth Table & Canonical SOP / POS</h1>
         <p className="subtitle">
           Comprehensive truth table evaluation across all 2<sup>{activeTable.vars.length}</sup> minterms,
@@ -212,13 +211,12 @@ export const TruthTablePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Action to proceed to Phase 2 */}
       <div className="action-footer">
         <button
           className="btn-primary-large"
           onClick={() => navigate('/kmap')}
         >
-          Proceed to K-Map & Quine–McCluskey Minimizer (Phase 2) →
+          Proceed to K-Map & Quine–McCluskey Minimizer →
         </button>
       </div>
     </div>

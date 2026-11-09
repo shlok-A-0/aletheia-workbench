@@ -1,5 +1,5 @@
 /**
- * LDAM Boolean Engine — Public Module Exports
+ * Aletheia Boolean Engine — Public Module Exports
  * Re-exports parser, evaluation, canonical form, truth table, and algebraic reduction utilities.
  */
 

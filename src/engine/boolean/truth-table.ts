@@ -1,10 +1,18 @@
 /**
- * LDAM Boolean Engine — Truth Table Construction & Inspection
+ * Aletheia Boolean Engine — Truth Table Construction & Inspection
  * Converts between expressions, minterms, maxterms, and truth tables.
  */
 
 import type { Expr, TruthTable } from '../types';
 import { collectVars, evalExpr } from './evaluator';
+
+function unpackBits(index: number, n: number): (0 | 1)[] {
+  const inputs: (0 | 1)[] = [];
+  for (let bit = 0; bit < n; bit++) {
+    inputs.push(((index >> (n - 1 - bit)) & 1) as 0 | 1);
+  }
+  return inputs;
+}
 
 /**
  * Generates a full TruthTable from an AST expression.
@@ -21,13 +29,10 @@ export function truthTableFromExpr(e: Expr, vars?: string[]): TruthTable {
   const rows: TruthTable['rows'] = [];
 
   for (let i = 0; i < numRows; i++) {
-    const inputs: (0 | 1)[] = [];
+    const inputs = unpackBits(i, n);
     const assignment: Record<string, 0 | 1> = {};
-
     for (let bit = 0; bit < n; bit++) {
-      const val = ((i >> (n - 1 - bit)) & 1) as 0 | 1;
-      inputs.push(val);
-      assignment[variables[bit]] = val;
+      assignment[variables[bit]] = inputs[bit];
     }
 
     const out = evalExpr(e, assignment);
@@ -35,6 +40,35 @@ export function truthTableFromExpr(e: Expr, vars?: string[]): TruthTable {
   }
 
   return { vars: variables, rows };
+}
+
+function validateTermIndices(
+  terms: number[],
+  dontCares: number[],
+  numRows: number,
+  termName: 'minterm' | 'maxterm'
+): void {
+  function validateList(indices: number[], label: string): void {
+    const seen = new Set<number>();
+    for (const index of indices) {
+      if (!Number.isInteger(index) || index < 0 || index >= numRows) {
+        throw new Error(`${label} index ${index} is out of range (0–${numRows - 1}).`);
+      }
+      if (seen.has(index)) {
+        throw new Error(`Duplicate ${label} index ${index}.`);
+      }
+      seen.add(index);
+    }
+  }
+
+  validateList(terms, termName);
+  validateList(dontCares, "don't-care");
+  const termsSet = new Set(terms);
+  for (const index of dontCares) {
+    if (termsSet.has(index)) {
+      throw new Error(`${termName} index ${index} is also listed as a don't-care.`);
+    }
+  }
 }
 
 /**
@@ -47,15 +81,13 @@ export function truthTableFromMinterms(
 ): TruthTable {
   const n = vars.length;
   const numRows = 1 << n;
+  validateTermIndices(minterms, dontCares, numRows, 'minterm');
   const mSet = new Set(minterms);
   const dSet = new Set(dontCares);
   const rows: TruthTable['rows'] = [];
 
   for (let i = 0; i < numRows; i++) {
-    const inputs: (0 | 1)[] = [];
-    for (let bit = 0; bit < n; bit++) {
-      inputs.push(((i >> (n - 1 - bit)) & 1) as 0 | 1);
-    }
+    const inputs = unpackBits(i, n);
 
     let out: 0 | 1 | 'x' = 0;
     if (dSet.has(i)) {
@@ -80,15 +112,13 @@ export function truthTableFromMaxterms(
 ): TruthTable {
   const n = vars.length;
   const numRows = 1 << n;
+  validateTermIndices(maxterms, dontCares, numRows, 'maxterm');
   const MSet = new Set(maxterms);
   const dSet = new Set(dontCares);
   const rows: TruthTable['rows'] = [];
 
   for (let i = 0; i < numRows; i++) {
-    const inputs: (0 | 1)[] = [];
-    for (let bit = 0; bit < n; bit++) {
-      inputs.push(((i >> (n - 1 - bit)) & 1) as 0 | 1);
-    }
+    const inputs = unpackBits(i, n);
 
     let out: 0 | 1 | 'x' = 1;
     if (dSet.has(i)) {
@@ -117,10 +147,7 @@ export function truthTableFromOutputs(vars: string[], outputs: (0 | 1 | 'x')[]):
 
   const rows: TruthTable['rows'] = [];
   for (let i = 0; i < expectedRows; i++) {
-    const inputs: (0 | 1)[] = [];
-    for (let bit = 0; bit < n; bit++) {
-      inputs.push(((i >> (n - 1 - bit)) & 1) as 0 | 1);
-    }
+    const inputs = unpackBits(i, n);
     rows.push({ index: i, inputs, out: outputs[i] });
   }
 

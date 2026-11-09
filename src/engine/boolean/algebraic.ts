@@ -1,5 +1,5 @@
 /**
- * LDAM Boolean Engine — Algebraic Simplification
+ * Aletheia Boolean Engine — Algebraic Simplification
  * Applies named Boolean algebraic theorems step-by-step, recording pedagogical
  * explanation steps and guarding against infinite loops with cycle detection.
  */

@@ -1,7 +1,6 @@
 /**
- * LDAM Minimization Engine — Multi-Output Quine–McCluskey
- * Minimizes multiple Boolean functions simultaneously (e.g. BCD to 7-segment decoder)
- * by detecting and tagging prime implicants shared across multiple outputs.
+ * Aletheia Minimization Engine — Independent Multi-Output Results
+ * Minimizes each output independently and reports implicants shared by the selected covers.
  */
 
 import type { TruthTable, MinResult, MultiMinResult, Implicant } from '../types';

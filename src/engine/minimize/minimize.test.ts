@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   quineMcCluskey,
+  buildKMap,
   primeImplicants,
   allMinimalCovers,
   kmapGroups,
@@ -12,6 +13,7 @@ import {
   evalExpr,
   isEquivalent,
 } from '../boolean';
+import type { TruthTable } from '../types';
 
 describe('Phase 2 — K-Map and Quine–McCluskey Golden Tests', () => {
   // Golden Test 1: Σm(1,3,5,7) over A,B,C → SOP C, 1 term, 1 literal
@@ -139,24 +141,145 @@ describe('Phase 2 — K-Map and Quine–McCluskey Golden Tests', () => {
       const expected = mSet.has(m) ? 1 : 0;
       expect(evalExpr(res.expr, assignment)).toBe(expected);
     }
+
+    expect(res.termCount).toBe(6);
+    expect(res.literalCount).toBe(23);
   });
 
-  // Golden Test 7: K-map cost matches QM cost for 2 to 4 variables
-  it('Golden Test 7: K-Map cost equals QM cost', () => {
-    const testCases = [
-      { vars: ['A', 'B', 'C'], m: [1, 3, 5, 7], d: [] },
-      { vars: ['A', 'B', 'C', 'D'], m: [0, 1, 2, 5, 6, 7, 8, 9, 10, 14], d: [] },
-      { vars: ['A', 'B', 'C', 'D'], m: [1, 3, 7, 11, 15], d: [0, 2, 5] },
-      { vars: ['A', 'B'], m: [1, 2], d: [] },
-    ];
+function findTrueMinimumCost(tt: TruthTable): { termCount: number; literalCount: number } {
+  const careMinterms = tt.rows.filter((r) => r.out === 1).map((r) => r.index);
+  if (careMinterms.length === 0) return { termCount: 0, literalCount: 0 };
 
-    for (const tc of testCases) {
-      const tt = truthTableFromMinterms(tc.vars, tc.m, tc.d);
+  const allOn = tt.rows.filter((r) => r.out === 1 || r.out === 'x').map((r) => r.index);
+  const n = tt.vars.length;
+  if (allOn.length === (1 << n)) {
+    return { termCount: 1, literalCount: 0 };
+  }
+
+  // Evaluate all 3^n ternary patterns for n <= 4
+  const primeImplicants: { bits: (0 | 1 | '-')[]; covers: Set<number>; literals: number }[] = [];
+  const totalPatterns = Math.pow(3, n);
+
+  for (let p = 0; p < totalPatterns; p++) {
+    let tmp = p;
+    const bits: (0 | 1 | '-')[] = [];
+    for (let i = 0; i < n; i++) {
+      const rem = tmp % 3;
+      tmp = Math.floor(tmp / 3);
+      bits.push(rem === 0 ? 0 : rem === 1 ? 1 : '-');
+    }
+
+    const covers: number[] = [];
+    const totalCombos = 1 << n;
+    let valid = true;
+    for (let m = 0; m < totalCombos; m++) {
+      let matches = true;
+      for (let b = 0; b < n; b++) {
+        const bitVal = (m >> (n - 1 - b)) & 1;
+        if (bits[b] !== '-' && bits[b] !== bitVal) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        if (!allOn.includes(m)) {
+          valid = false;
+          break;
+        }
+        covers.push(m);
+      }
+    }
+
+    if (valid && covers.length > 0) {
+      const litCount = bits.filter((b) => b !== '-').length;
+      primeImplicants.push({ bits, covers: new Set(covers), literals: litCount });
+    }
+  }
+
+  // Keep maximal prime implicants
+  const PIs = primeImplicants.filter((pi1, idx1) => {
+    return !primeImplicants.some((pi2, idx2) => {
+      if (idx1 === idx2) return false;
+      if (pi2.covers.size > pi1.covers.size) {
+        for (const m of pi1.covers) {
+          if (!pi2.covers.has(m)) return false;
+        }
+        return true;
+      }
+      return false;
+    });
+  });
+
+  let bestTerms = Infinity;
+  let bestLiterals = Infinity;
+
+  function search(idx: number, chosen: typeof PIs, covered: Set<number>) {
+    if (careMinterms.every((m) => covered.has(m))) {
+      const terms = chosen.length;
+      const lits = chosen.reduce((s, c) => s + c.literals, 0);
+      if (terms < bestTerms || (terms === bestTerms && lits < bestLiterals)) {
+        bestTerms = terms;
+        bestLiterals = lits;
+      }
+      return;
+    }
+    if (idx >= PIs.length) return;
+    if (chosen.length >= bestTerms) return;
+
+    // Branch 1: include PI
+    const pi = PIs[idx];
+    const newCovered = new Set(covered);
+    for (const m of pi.covers) {
+      if (careMinterms.includes(m)) newCovered.add(m);
+    }
+    chosen.push(pi);
+    search(idx + 1, chosen, newCovered);
+    chosen.pop();
+
+    // Branch 2: skip PI
+    search(idx + 1, chosen, covered);
+  }
+
+  search(0, [], new Set());
+  return { termCount: bestTerms, literalCount: bestLiterals };
+}
+
+  // Golden Test 7: K-map cost matches QM cost for 2 to 4 variables across 200 random functions
+  it('Golden Test 7: K-Map cost equals QM cost and exhaustive true minimum', () => {
+    function seededRandom(seed = 12345) {
+      let s = seed;
+      return () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+    }
+    const rand = seededRandom(99999);
+
+    for (let testIdx = 0; testIdx < 200; testIdx++) {
+      const numVars = 2 + (testIdx % 3); // 2, 3, 4 vars
+      const vars = ['A', 'B', 'C', 'D'].slice(0, numVars);
+      const totalCells = 1 << numVars;
+
+      const minterms: number[] = [];
+      const dontCares: number[] = [];
+      for (let cell = 0; cell < totalCells; cell++) {
+        const r = rand();
+        if (r < 0.35) {
+          minterms.push(cell);
+        } else if (r < 0.5) {
+          dontCares.push(cell);
+        }
+      }
+
+      const tt = truthTableFromMinterms(vars, minterms, dontCares);
       const qm = quineMcCluskey(tt, 'SOP');
       const km = kmapSimplify(tt, 'SOP');
+      const trueMin = findTrueMinimumCost(tt);
 
-      expect(km.termCount).toBe(qm.termCount);
-      expect(km.literalCount).toBe(qm.literalCount);
+      expect(qm.termCount).toBe(trueMin.termCount);
+      expect(km.termCount).toBe(trueMin.termCount);
+      expect(qm.literalCount).toBe(trueMin.literalCount);
+      expect(km.literalCount).toBe(trueMin.literalCount);
     }
   });
 
@@ -179,6 +302,21 @@ describe('Phase 2 — K-Map and Quine–McCluskey Golden Tests', () => {
     const pos = quineMcCluskey(tt, 'POS');
 
     expect(isEquivalent(sop.expr, pos.expr, ['A', 'B', 'C', 'D'])).toBe(true);
+  });
+
+  it('renders a five-variable K-map and groups Gray-code wraparound cells correctly', () => {
+    const tt = truthTableFromMinterms(
+      ['A', 'B', 'C', 'D', 'E'],
+      Array.from({ length: 32 }, (_, index) => index).filter((index) => index % 2 === 1)
+    );
+    const map = buildKMap(tt);
+    expect(map.grid).toHaveLength(4);
+    expect(map.grid[0]).toHaveLength(8);
+
+    const result = kmapSimplify(tt, 'SOP');
+    expect(result.text).toBe('E');
+    expect(result.termCount).toBe(1);
+    expect(result.literalCount).toBe(1);
   });
 
   // Additional features: Prime implicants and all minimal covers

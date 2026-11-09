@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useStore } from '../../store';
-import type { Netlist, Gate, Const, GateType } from '../../engine/types';
+import type { Netlist, Gate, GateType } from '../../engine/types';
 import { exprToNetlist, minResultToNetlist, toNandOnly, toNorOnly } from '../../engine/circuit/generate';
 import { evaluate, verify, truthTableOfNetlist } from '../../engine/circuit/simulate';
 import {
@@ -9,249 +9,33 @@ import {
   comparator, bcdTo7Seg,
 } from '../../engine/circuit/blocks';
 import type { CircuitVariant } from '../../store/slices/circuit';
+import { layoutNetlist, type LayoutNode } from '../circuitLayout';
 
-
-/* ────────────────────── Layout types ────────────────────── */
-
-interface LayoutNode {
-  id: string;
-  type: GateType | 'INPUT' | 'CONST' | 'OUTPUT';
-  label: string;
-  layer: number;
-  order: number;
-  x: number;
-  y: number;
-  inputs: string[];   // net ids
-  output: string;     // net id
-  value?: 0 | 1;
-}
-
-interface LayoutWire {
-  fromId: string;
-  toId: string;
-  toInputIdx: number;
-  net: string;
-  value?: 0 | 1;
-}
-
-/* ──────── Gate symbol constants ──────── */
+/* ────────────────────── SVG gate shape components ────────────────────── */
 const GATE_W = 70;
 const GATE_H = 44;
-const LAYER_GAP = 140;
-const NODE_GAP = 64;
-const PAD_LEFT = 100;
-const PAD_TOP = 60;
 const INPUT_W = 50;
 const INPUT_H = 28;
 
-/* ────────────────────── Layout algorithm ────────────────────── */
-
-function layoutNetlist(
-  netlist: Netlist,
-  simValues: Record<string, 0 | 1> | null
-): { nodes: LayoutNode[]; wires: LayoutWire[]; width: number; height: number } {
-  const gates = netlist.nodes.filter((n) => n.kind === 'gate') as Gate[];
-  const consts = netlist.nodes.filter((n) => n.kind === 'const') as Const[];
-
-  // Map output net -> node
-  const netToNode = new Map<string, string>();
-  for (const g of gates) netToNode.set(g.output, g.id);
-  for (const c of consts) netToNode.set(c.output, c.id);
-
-  // Compute layers via longest path from inputs
-  const gateById = new Map<string, Gate>();
-  for (const g of gates) gateById.set(g.id, g);
-  const constById = new Map<string, Const>();
-  for (const c of consts) constById.set(c.id, c);
-
-  const layerOf = new Map<string, number>();
-
-  function getLayer(gateId: string): number {
-    if (layerOf.has(gateId)) return layerOf.get(gateId)!;
-    const g = gateById.get(gateId);
-    if (!g) return 0;
-    let maxPred = 0;
-    for (const inp of g.inputs) {
-      const predId = netToNode.get(inp);
-      if (predId && gateById.has(predId)) {
-        maxPred = Math.max(maxPred, getLayer(predId) + 1);
-      }
-    }
-    layerOf.set(gateId, maxPred);
-    return maxPred;
+function wireSourceX(from: LayoutNode): number {
+  switch (from.type) {
+    case 'INPUT': return from.x + INPUT_W / 2;
+    case 'CONST': return from.x + 18;
+    case 'AND': return from.x + 22;
+    case 'NAND': return from.x + 30;
+    case 'OR':
+    case 'XOR': return from.x + 35;
+    case 'NOR':
+    case 'XNOR': return from.x + 43;
+    case 'NOT': return from.x + 33;
+    case 'BUF':
+    case 'OUTPUT': return from.x + 25;
   }
-
-  for (const g of gates) getLayer(g.id);
-
-  const maxLayer = Math.max(0, ...Array.from(layerOf.values()));
-
-  // Build layout nodes
-  const layoutNodes: LayoutNode[] = [];
-
-  // Input nodes at layer -1
-  for (let i = 0; i < netlist.inputs.length; i++) {
-    const net = netlist.inputs[i];
-    layoutNodes.push({
-      id: `in_${net}`,
-      type: 'INPUT',
-      label: net,
-      layer: -1,
-      order: i,
-      x: 0,
-      y: 0,
-      inputs: [],
-      output: net,
-      value: simValues ? simValues[net] : undefined,
-    });
-  }
-
-  // Const nodes at layer -1
-  for (let i = 0; i < consts.length; i++) {
-    const c = consts[i];
-    layoutNodes.push({
-      id: c.id,
-      type: 'CONST',
-      label: String(c.value),
-      layer: -1,
-      order: netlist.inputs.length + i,
-      x: 0,
-      y: 0,
-      inputs: [],
-      output: c.output,
-      value: c.value,
-    });
-  }
-
-  // Gate nodes
-  // Group by layer for ordering
-  const layerBuckets = new Map<number, string[]>();
-  for (const g of gates) {
-    const lyr = layerOf.get(g.id) ?? 0;
-    if (!layerBuckets.has(lyr)) layerBuckets.set(lyr, []);
-    layerBuckets.get(lyr)!.push(g.id);
-  }
-
-  // Barycenter heuristic: order nodes in each layer by average position of predecessors
-  const orderMap = new Map<string, number>();
-  // Assign initial orders for inputs
-  for (const ln of layoutNodes) orderMap.set(ln.id, ln.order);
-
-  for (let lyr = 0; lyr <= maxLayer; lyr++) {
-    const ids = layerBuckets.get(lyr) ?? [];
-    const barycenters: { id: string; bc: number }[] = ids.map((gId) => {
-      const g = gateById.get(gId)!;
-      let sumOrders = 0;
-      let countPreds = 0;
-      for (const inp of g.inputs) {
-        const predId = netToNode.get(inp);
-        // Check input nodes too
-        const inputNodeId = `in_${inp}`;
-        if (predId && orderMap.has(predId)) {
-          sumOrders += orderMap.get(predId)!;
-          countPreds++;
-        } else if (orderMap.has(inputNodeId)) {
-          sumOrders += orderMap.get(inputNodeId)!;
-          countPreds++;
-        }
-      }
-      return { id: gId, bc: countPreds > 0 ? sumOrders / countPreds : 0 };
-    });
-    barycenters.sort((a, b) => a.bc - b.bc);
-    barycenters.forEach((item, idx) => orderMap.set(item.id, idx));
-  }
-
-  for (const g of gates) {
-    const lyr = layerOf.get(g.id) ?? 0;
-    layoutNodes.push({
-      id: g.id,
-      type: g.type,
-      label: g.type,
-      layer: lyr,
-      order: orderMap.get(g.id) ?? 0,
-      x: 0,
-      y: 0,
-      inputs: g.inputs,
-      output: g.output,
-      value: simValues ? simValues[g.output] : undefined,
-    });
-  }
-
-  // Output nodes at maxLayer + 1
-  for (let i = 0; i < netlist.outputs.length; i++) {
-    const net = netlist.outputs[i];
-    layoutNodes.push({
-      id: `out_${net}`,
-      type: 'OUTPUT',
-      label: `Y${netlist.outputs.length > 1 ? i : ''}`,
-      layer: maxLayer + 1,
-      order: i,
-      x: 0,
-      y: 0,
-      inputs: [net],
-      output: net,
-      value: simValues ? simValues[net] : undefined,
-    });
-  }
-
-  // Assign x/y positions
-  const layerGroups = new Map<number, LayoutNode[]>();
-  for (const n of layoutNodes) {
-    if (!layerGroups.has(n.layer)) layerGroups.set(n.layer, []);
-    layerGroups.get(n.layer)!.push(n);
-  }
-
-  for (const [, group] of layerGroups) {
-    group.sort((a, b) => a.order - b.order);
-    group.forEach((n, i) => (n.order = i));
-  }
-
-  let maxNodesInLayer = 0;
-  for (const [, group] of layerGroups) {
-    maxNodesInLayer = Math.max(maxNodesInLayer, group.length);
-  }
-
-  const totalLayers = maxLayer + 3; // -1, 0..maxLayer, maxLayer+1
-  for (const n of layoutNodes) {
-    const layerIdx = n.layer + 1; // shift so -1 becomes 0
-    n.x = PAD_LEFT + layerIdx * LAYER_GAP;
-    const group = layerGroups.get(n.layer)!;
-    const groupHeight = group.length * NODE_GAP;
-    const startY = PAD_TOP + (maxNodesInLayer * NODE_GAP - groupHeight) / 2;
-    n.y = startY + n.order * NODE_GAP;
-  }
-
-  // Build wires
-  const wires: LayoutWire[] = [];
-  const nodeByOutput = new Map<string, LayoutNode>();
-  for (const n of layoutNodes) nodeByOutput.set(n.output, n);
-  // For gates with input nets: find the output node for each input net
-  const nodeById = new Map<string, LayoutNode>();
-  for (const n of layoutNodes) nodeById.set(n.id, n);
-
-  for (const n of layoutNodes) {
-    if (n.type === 'INPUT' || n.type === 'CONST') continue;
-    for (let i = 0; i < n.inputs.length; i++) {
-      const inNet = n.inputs[i];
-      const srcNode = nodeByOutput.get(inNet);
-      if (srcNode) {
-        wires.push({
-          fromId: srcNode.id,
-          toId: n.id,
-          toInputIdx: i,
-          net: inNet,
-          value: simValues ? simValues[inNet] : undefined,
-        });
-      }
-    }
-  }
-
-  const width = PAD_LEFT + totalLayers * LAYER_GAP + 60;
-  const height = PAD_TOP + maxNodesInLayer * NODE_GAP + 40;
-
-  return { nodes: layoutNodes, wires, width: Math.max(width, 400), height: Math.max(height, 200) };
 }
 
-/* ────────────────────── SVG gate shape components ────────────────────── */
+function wireColor(value?: 0 | 1): string {
+  return value === 1 ? '#10b981' : value === 0 ? '#475569' : '#334155';
+}
 
 const GateSymbol: React.FC<{
   type: GateType | 'INPUT' | 'CONST' | 'OUTPUT';
@@ -319,7 +103,6 @@ const GateSymbol: React.FC<{
   // Gate body
   const hw = GATE_W / 2;
   const hh = GATE_H / 2;
-  const isInverted = type === 'NOT' || type === 'NAND' || type === 'NOR' || type === 'XNOR';
 
   let shapePath = '';
   const gx = x - hw;
@@ -353,11 +136,14 @@ const GateSymbol: React.FC<{
           fill="none" stroke={stroke} strokeWidth={1.5} />
       )}
       {/* Inversion bubble */}
-      {isInverted && type !== 'NOT' && (
-        <circle cx={x + hw + 5} cy={y} r={4} fill="var(--bg-primary)" stroke={stroke} strokeWidth={1.5} />
+      {type === 'NAND' && (
+        <circle cx={x + hh + 4} cy={y} r={4} fill="var(--bg-primary)" stroke={stroke} strokeWidth={1.5} />
+      )}
+      {(type === 'NOR' || type === 'XNOR') && (
+        <circle cx={x + hw + 4} cy={y} r={4} fill="var(--bg-primary)" stroke={stroke} strokeWidth={1.5} />
       )}
       {type === 'NOT' && (
-        <circle cx={gx + GATE_W - 5} cy={y} r={4} fill="var(--bg-primary)" stroke={stroke} strokeWidth={1.5} />
+        <circle cx={gx + GATE_W - 6} cy={y} r={4} fill="var(--bg-primary)" stroke={stroke} strokeWidth={1.5} />
       )}
       {/* Label */}
       <text x={type === 'NOT' || type === 'BUF' ? x - 12 : x} y={y + 1}
@@ -376,50 +162,94 @@ const WireSVG: React.FC<{
   to: LayoutNode;
   toInputIdx: number;
   totalInputs: number;
+  cornerX?: number;
   value?: 0 | 1;
-}> = ({ from, to, toInputIdx, totalInputs, value }) => {
-  const stroke = value === 1 ? '#10b981' : value === 0 ? '#475569' : '#334155';
+}> = ({ from, to, toInputIdx, totalInputs, cornerX, value }) => {
+  const stroke = wireColor(value);
 
-  // Source point (right side of the source gate)
-  let sx: number, sy: number;
-  if (from.type === 'INPUT') {
-    sx = from.x + INPUT_W / 2;
-    sy = from.y;
-  } else if (from.type === 'CONST') {
-    sx = from.x + 18;
-    sy = from.y;
-  } else {
-    sx = from.x + GATE_W / 2 + (
-      (from.type === 'NAND' || from.type === 'NOR' || from.type === 'XNOR') ? 9 :
-      from.type === 'NOT' ? 4 : 0
-    );
-    sy = from.y;
-  }
+  // Source point (exact right edge/tip of the source gate)
+  const sx = wireSourceX(from);
+  const sy = from.y;
 
-  // Target point (left side of the destination gate, spread for multi-input)
+  // Target point (left side / input pin of destination gate)
   let tx: number, ty: number;
   if (to.type === 'OUTPUT') {
     tx = to.x - 20;
     ty = to.y;
   } else {
-    tx = to.x - GATE_W / 2;
-    const spread = Math.min(GATE_H * 0.7, (totalInputs > 1 ? GATE_H * 0.7 : 0));
+    const spread = Math.min(GATE_H * 0.72, totalInputs > 1 ? GATE_H * 0.72 : 0);
     ty = totalInputs > 1
       ? to.y - spread / 2 + (spread / (totalInputs - 1)) * toInputIdx
       : to.y;
+
+    const baseLeft = to.x - GATE_W / 2;
+    if (to.type === 'OR' || to.type === 'NOR') {
+      const normDy = Math.min(1, Math.abs(ty - to.y) / (GATE_H / 2));
+      const indent = 10.5 * (1 - normDy * normDy);
+      tx = baseLeft + indent;
+    } else if (to.type === 'XOR' || to.type === 'XNOR') {
+      const normDy = Math.min(1, Math.abs(ty - to.y) / (GATE_H / 2));
+      const indent = 10.5 * (1 - normDy * normDy);
+      tx = baseLeft + 5 + indent;
+    } else {
+      tx = baseLeft;
+    }
   }
 
-  // Orthogonal routing
-  const midX = (sx + tx) / 2;
+  // Orthogonal Manhattan routing (90-degree right angles like standard schematics)
+  let pathData: string;
+  if (Math.abs(sy - ty) < 1) {
+    pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
+  } else {
+    const cx = cornerX ?? ((sx + tx) / 2);
+    pathData = `M ${sx} ${sy} L ${cx} ${sy} L ${cx} ${ty} L ${tx} ${ty}`;
+  }
 
   return (
-    <path
-      d={`M${sx},${sy} C${midX},${sy} ${midX},${ty} ${tx},${ty}`}
-      fill="none"
-      stroke={stroke}
-      strokeWidth={value === 1 ? 2 : 1.2}
-      opacity={0.8}
-    />
+    <g>
+      <path
+        d={pathData}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={value === 1 ? 2 : 1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.85}
+      />
+    </g>
+  );
+};
+
+const WireJunctions: React.FC<{
+  nodes: LayoutNode[];
+  wires: ReturnType<typeof layoutNetlist>['wires'];
+}> = ({ nodes, wires }) => {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const fanout = new Map<string, number>();
+  for (const wire of wires) {
+    fanout.set(wire.fromId, (fanout.get(wire.fromId) ?? 0) + 1);
+  }
+
+  return (
+    <g aria-hidden="true" pointerEvents="none">
+      {Array.from(fanout, ([nodeId, count]) => {
+        if (count < 2) return null;
+        const node = nodesById.get(nodeId);
+        if (!node) return null;
+        return (
+          <circle
+            className="wire-junction"
+            key={nodeId}
+            cx={wireSourceX(node)}
+            cy={node.y}
+            r={3}
+            fill={wireColor(node.value)}
+            stroke="var(--bg-primary)"
+            strokeWidth={1.5}
+          />
+        );
+      })}
+    </g>
   );
 };
 
@@ -432,7 +262,7 @@ const BLOCK_CATALOG = [
   { key: 'demux2', label: 'DEMUX 1:4', fn: () => demux(2), desc: '1:4 Demultiplexer' },
   { key: 'dec2', label: 'Decoder 2:4', fn: () => decoder(2), desc: '2-to-4 Decoder with Enable' },
   { key: 'dec3', label: 'Decoder 3:8', fn: () => decoder(3), desc: '3-to-8 Decoder with Enable' },
-  { key: 'enc4', label: 'Encoder 4:2', fn: () => encoder(4), desc: '4-to-2 Encoder' },
+  { key: 'enc4', label: 'Encoder 16→4', fn: () => encoder(4), desc: '16-to-4 Encoder' },
   { key: 'penc4', label: 'Priority Enc 4:2', fn: () => priorityEncoder(4), desc: '4-to-2 Priority Encoder' },
   { key: 'ha', label: 'Half Adder', fn: () => halfAdder(), desc: 'Half Adder (S, Cout)' },
   { key: 'fa', label: 'Full Adder', fn: () => fullAdder(), desc: 'Full Adder (S, Cout)' },
@@ -464,6 +294,17 @@ export const CircuitPage: React.FC = () => {
   const [selectedBlock, setSelectedBlock] = useState('ha');
   const [blockOverrides, setBlockOverrides] = useState<Record<string, 0 | 1>>({});
   const [blockSimResult, setBlockSimResult] = useState<Record<string, 0 | 1> | null>(null);
+  const [circuitError, setCircuitError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<{
+    message: string;
+    parsedExpr: typeof parsedExpr;
+    minResult: typeof minResult;
+  } | null>(null);
+  const visibleCircuitError = circuitError ?? (
+    generationError?.parsedExpr === parsedExpr && generationError.minResult === minResult
+      ? generationError.message
+      : null
+  );
 
   // Generate all circuit variants from current expression/minResult
   useEffect(() => {
@@ -488,14 +329,18 @@ export const CircuitPage: React.FC = () => {
       setNetlist('simplified', simplifiedNetlist);
 
       if (simplifiedNetlist) {
-        try { setNetlist('nand', toNandOnly(simplifiedNetlist)); } catch { setNetlist('nand', null); }
-        try { setNetlist('nor', toNorOnly(simplifiedNetlist)); } catch { setNetlist('nor', null); }
+        setNetlist('nand', toNandOnly(simplifiedNetlist));
+        setNetlist('nor', toNorOnly(simplifiedNetlist));
       } else {
         setNetlist('nand', null);
         setNetlist('nor', null);
       }
-    } catch {
-      // expression might be invalid
+    } catch (error) {
+      setGenerationError({
+        message: error instanceof Error ? error.message : String(error),
+        parsedExpr,
+        minResult,
+      });
     }
   }, [parsedExpr, minResult, setNetlist]);
 
@@ -514,12 +359,13 @@ export const CircuitPage: React.FC = () => {
   // Simulate
   const simValues = useMemo(() => {
     if (!currentNetlist || Object.keys(inputValues).length === 0) return null;
-    try {
-      return evaluate(currentNetlist, inputValues);
-    } catch {
-      return null;
-    }
+    return evaluate(currentNetlist, inputValues);
   }, [currentNetlist, inputValues]);
+
+  const automaticVerification = useMemo(
+    () => currentNetlist && truthTable ? verify(currentNetlist, truthTable) : null,
+    [currentNetlist, truthTable]
+  );
 
   // Layout
   const layout = useMemo(() => {
@@ -537,11 +383,14 @@ export const CircuitPage: React.FC = () => {
     }
     return {
       totalGates: gates.length,
+      literalCount: minResult?.literalCount ?? null,
+      nandGates: netlists.nand?.nodes.filter((n) => n.kind === 'gate' && n.type === 'NAND').length ?? null,
+      norGates: netlists.nor?.nodes.filter((n) => n.kind === 'gate' && n.type === 'NOR').length ?? null,
       inputs: currentNetlist.inputs.length,
       outputs: currentNetlist.outputs.length,
       typeCounts,
     };
-  }, [currentNetlist]);
+  }, [currentNetlist, minResult, netlists.nand, netlists.nor]);
 
   const toggleInput = useCallback((name: string) => {
     setInputOverrides((prev) => ({
@@ -553,29 +402,32 @@ export const CircuitPage: React.FC = () => {
 
   const handleVerify = useCallback(() => {
     if (!currentNetlist || !truthTable) return;
-    const result = verify(currentNetlist, truthTable);
-    setVerifyResult(result);
+    try {
+      setVerifyResult(verify(currentNetlist, truthTable));
+    } catch (error) {
+      setCircuitError(error instanceof Error ? error.message : String(error));
+    }
   }, [currentNetlist, truthTable]);
 
   const handleDeriveTruthTable = useCallback(() => {
     if (!currentNetlist) return;
-    const derived = truthTableOfNetlist(currentNetlist);
-    setTruthTable(derived);
-    setVars(derived.vars);
-    setInput(`Circuit: ${currentNetlist.name}`, 'table');
-    setDeriveSuccess(true);
-    setTimeout(() => setDeriveSuccess(false), 3000);
+    try {
+      const derived = truthTableOfNetlist(currentNetlist);
+      setVars(derived.vars);
+      setInput(`Circuit: ${currentNetlist.name}`, 'table');
+      setTruthTable(derived);
+      setDeriveSuccess(true);
+      setTimeout(() => setDeriveSuccess(false), 3000);
+    } catch (error) {
+      setCircuitError(error instanceof Error ? error.message : String(error));
+    }
   }, [currentNetlist, setTruthTable, setVars, setInput]);
 
   // Block tab logic
   const currentBlock = useMemo(() => {
     const entry = BLOCK_CATALOG.find((b) => b.key === selectedBlock);
     if (!entry) return null;
-    try {
-      return entry.fn();
-    } catch {
-      return null;
-    }
+    return entry.fn();
   }, [selectedBlock]);
 
   const blockInputs = useMemo(() => {
@@ -592,8 +444,8 @@ export const CircuitPage: React.FC = () => {
     try {
       const result = evaluate(currentBlock, blockInputs);
       setBlockSimResult(result);
-    } catch {
-      setBlockSimResult(null);
+    } catch (error) {
+      setCircuitError(error instanceof Error ? error.message : String(error));
     }
   }, [currentBlock, blockInputs]);
 
@@ -674,6 +526,7 @@ export const CircuitPage: React.FC = () => {
 
       {activeTab === 'schematic' && (
         <>
+          {visibleCircuitError && <div className="error-banner" role="alert">{visibleCircuitError}</div>}
           {noData ? (
             <div className="card circuit-empty-card">
               <div className="empty-state">
@@ -699,6 +552,24 @@ export const CircuitPage: React.FC = () => {
                     <span className="stat-label">Outputs</span>
                     <span className="stat-value">{stats.outputs}</span>
                   </div>
+                  {stats.literalCount !== null && (
+                    <div className="stat-chip">
+                      <span className="stat-label">Literals</span>
+                      <span className="stat-value">{stats.literalCount}</span>
+                    </div>
+                  )}
+                  {stats.nandGates !== null && (
+                    <div className="stat-chip">
+                      <span className="stat-label">NAND-only gates</span>
+                      <span className="stat-value">{stats.nandGates}</span>
+                    </div>
+                  )}
+                  {stats.norGates !== null && (
+                    <div className="stat-chip">
+                      <span className="stat-label">NOR-only gates</span>
+                      <span className="stat-value">{stats.norGates}</span>
+                    </div>
+                  )}
                   {Object.entries(stats.typeCounts).map(([type, count]) => (
                     <div key={type} className="stat-chip type-chip">
                       <span className="stat-label">{type}</span>
@@ -760,6 +631,7 @@ export const CircuitPage: React.FC = () => {
                             to={toNode}
                             toInputIdx={w.toInputIdx}
                             totalInputs={totalInputs}
+                            cornerX={w.cornerX}
                             value={w.value}
                           />
                         );
@@ -775,6 +647,7 @@ export const CircuitPage: React.FC = () => {
                           value={n.value}
                         />
                       ))}
+                      <WireJunctions nodes={layout.nodes} wires={layout.wires} />
                     </svg>
                   </div>
                 </div>
@@ -786,6 +659,13 @@ export const CircuitPage: React.FC = () => {
                   <button className="btn-action btn-verify" onClick={handleVerify}>
                     ✔ Verify Against Truth Table
                   </button>
+                )}
+                {automaticVerification && (
+                  <div className={`verify-badge ${automaticVerification.ok ? 'pass' : 'fail'}`}>
+                    {automaticVerification.ok
+                      ? '✓ Circuit matches truth table'
+                      : `✗ Circuit mismatch at rows: ${automaticVerification.mismatches.slice(0, 10).join(', ')}`}
+                  </div>
                 )}
                 <button className="btn-action btn-sim" onClick={handleDeriveTruthTable}>
                   📊 Derive Truth Table from Circuit
@@ -902,6 +782,7 @@ export const CircuitPage: React.FC = () => {
                             to={toNode}
                             toInputIdx={w.toInputIdx}
                             totalInputs={toNode.inputs.length}
+                            cornerX={w.cornerX}
                             value={w.value}
                           />
                         );
@@ -916,6 +797,7 @@ export const CircuitPage: React.FC = () => {
                           value={n.value}
                         />
                       ))}
+                      <WireJunctions nodes={blockLayout.nodes} wires={blockLayout.wires} />
                     </svg>
                   </div>
                 </div>

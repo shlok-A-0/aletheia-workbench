@@ -96,14 +96,16 @@ const PRESET_FSMS: { name: string; st: StateTable }[] = [
 const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
   const { nodes, edges } = useMemo(() => stateDiagramData(st), [st]);
 
-  const centerX = 240;
-  const centerY = 190;
-  const radius = 130;
+  const count = nodes.length;
+  const radius = Math.max(130, Math.min(220, count * 28));
+  const width = Math.max(480, (radius + 60) * 2);
+  const height = Math.max(380, (radius + 60) * 2);
+  const centerX = width / 2;
+  const centerY = height / 2;
   const nodeRadius = 26;
 
   // Circular layout coordinates
   const positions = useMemo(() => {
-    const count = nodes.length;
     return Object.fromEntries(
       nodes.map((n, idx) => {
         const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
@@ -116,10 +118,10 @@ const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
         ];
       })
     );
-  }, [nodes]);
+  }, [nodes, count, centerX, centerY, radius]);
 
   return (
-    <svg width={480} height={380} viewBox="0 0 480 380" className="state-diagram-svg">
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width }} className="state-diagram-svg">
       <defs>
         <marker
           id="fsm-arrow"
@@ -274,15 +276,33 @@ export const SequentialPage: React.FC = () => {
   const [selectedFF, setSelectedFF] = useState<FFType>('JK');
   const [liveQ, setLiveQ] = useState<0 | 1>(0);
   const [ffInputs, setFfInputs] = useState<Record<string, 0 | 1>>({ J: 0, K: 0, D: 0, T: 0, S: 0, R: 0 });
+  const [asyncPreset, setAsyncPreset] = useState(false);
+  const [asyncClear, setAsyncClear] = useState(false);
+  const [ffWarning, setFFWarning] = useState<string | null>(null);
 
   const charRows = useMemo(() => characteristicTable(selectedFF), [selectedFF]);
   const excitRows = useMemo(() => excitationTable(selectedFF), [selectedFF]);
   const charEq = useMemo(() => characteristicEquation(selectedFF), [selectedFF]);
 
   const handleStepFFClock = useCallback(() => {
+    if (asyncClear) {
+      setLiveQ(0);
+      setFFWarning(null);
+      return;
+    }
+    if (asyncPreset) {
+      setLiveQ(1);
+      setFFWarning(null);
+      return;
+    }
+    if (selectedFF === 'SR' && ffInputs.S === 1 && ffInputs.R === 1) {
+      setFFWarning('Invalid SR input S=R=1; state remains unchanged.');
+      return;
+    }
+    setFFWarning(null);
     const nextVal = nextQ(selectedFF, liveQ, ffInputs);
     setLiveQ(nextVal === 'x' ? 0 : nextVal);
-  }, [selectedFF, liveQ, ffInputs]);
+  }, [selectedFF, liveQ, ffInputs, asyncPreset, asyncClear]);
 
   const toggleFFInput = useCallback((name: string) => {
     setFfInputs((prev) => ({
@@ -296,11 +316,14 @@ export const SequentialPage: React.FC = () => {
   const [circuitClockCount, setCircuitClockCount] = useState(0);
   const [circuitStateHistory, setCircuitStateHistory] = useState<string[]>([]);
   const [currentCircuitState, setCurrentCircuitState] = useState<Record<string, 0 | 1>>({});
+  const [circuitInputValues, setCircuitInputValues] = useState<Record<string, 0 | 1>>({});
 
   const standardCircuits = useMemo<Record<string, { label: string; getNetlist: () => Netlist }>>(() => ({
     sync_jk_2: { label: '2-bit Sync Up (JK-FF)', getNetlist: () => syncCounter(2, 'up', 'JK') },
     sync_t_3: { label: '3-bit Sync Up (T-FF)', getNetlist: () => syncCounter(3, 'up', 'T') },
     sync_t_4: { label: '4-bit Sync Up (T-FF)', getNetlist: () => syncCounter(4, 'up', 'T') },
+    sync_down_3: { label: '3-bit Sync Down (T-FF)', getNetlist: () => syncCounter(3, 'down', 'T') },
+    sync_updown_3: { label: '3-bit Sync Up/Down (JK-FF)', getNetlist: () => syncCounter(3, 'updown', 'JK') },
     mod6_d: { label: 'Mod-6 Counter (0–5, D-FF)', getNetlist: () => modNCounter(6) },
     mod10_d: { label: 'Mod-10 BCD Counter (0–9)', getNetlist: () => modNCounter(10) },
     ring_4: { label: '4-bit Ring Counter', getNetlist: () => ringCounter(4) },
@@ -327,9 +350,9 @@ export const SequentialPage: React.FC = () => {
 
   const handleStepCircuit = useCallback(() => {
     if (!activeCircuitNetlist) return;
-    const dummyInputs: Record<string, 0 | 1> = { CLK: 1 };
+    const dummyInputs: Record<string, 0 | 1> = { ...circuitInputValues, CLK: 1 };
     for (const inp of activeCircuitNetlist.inputs) {
-      if (inp !== 'CLK') dummyInputs[inp] = 0;
+      if (inp !== 'CLK') dummyInputs[inp] ??= 0;
     }
     const res = stepClock(activeCircuitNetlist, currentCircuitState, dummyInputs);
     setCurrentCircuitState(res.state);
@@ -342,7 +365,7 @@ export const SequentialPage: React.FC = () => {
       .join('');
     setCircuitStateHistory((prev) => [...prev.slice(-15), stateBits]);
     setCircuitClockCount((c) => c + 1);
-  }, [activeCircuitNetlist, currentCircuitState]);
+  }, [activeCircuitNetlist, currentCircuitState, circuitInputValues]);
 
   const handleResetCircuit = useCallback(() => {
     if (!activeCircuitNetlist) return;
@@ -362,6 +385,15 @@ export const SequentialPage: React.FC = () => {
   const [reductionResult, setReductionResult] = useState<ReturnType<typeof reduceStates> | null>(null);
 
   const fsmValidationErrors = useMemo(() => validateStateTable(fsmStateTable), [fsmStateTable]);
+
+  const updateFSMRow = useCallback((rowIndex: number, field: 'next' | 'output', value: string) => {
+    setFsmStateTable((current) => ({
+      ...current,
+      rows: current.rows.map((row, index) => index === rowIndex ? { ...row, [field]: value } : row),
+    }));
+    setDesignResult(null);
+    setReductionResult(null);
+  }, [setFsmStateTable, setDesignResult, setReductionResult]);
 
   const handleLoadPreset = useCallback((preset: StateTable) => {
     setFsmStateTable(preset);
@@ -543,6 +575,18 @@ export const SequentialPage: React.FC = () => {
                 )}
               </div>
 
+              <div className="circuit-input-switches" style={{ justifyContent: 'center', marginTop: 10 }}>
+                <label>
+                  <input type="checkbox" checked={asyncPreset} onChange={(event) => setAsyncPreset(event.target.checked)} />
+                  Async preset
+                </label>
+                <label>
+                  <input type="checkbox" checked={asyncClear} onChange={(event) => setAsyncClear(event.target.checked)} />
+                  Async clear
+                </label>
+              </div>
+              {ffWarning && <div className="verify-badge fail" role="alert">{ffWarning}</div>}
+
               <div style={{ textAlign: 'center', marginTop: 16 }}>
                 <button className="btn-action btn-sim" onClick={handleStepFFClock}>
                   ⚡ Pulse Clock
@@ -628,6 +672,9 @@ export const SequentialPage: React.FC = () => {
                     setCurrentCircuitState({});
                     setCircuitClockCount(0);
                     setCircuitStateHistory([]);
+                    setCircuitInputValues(Object.fromEntries(
+                      item.getNetlist().inputs.filter((input) => input !== 'CLK').map((input) => [input, 0])
+                    ));
                   }}
                 >
                   {item.label}
@@ -639,6 +686,24 @@ export const SequentialPage: React.FC = () => {
           {activeCircuitNetlist && (
             <>
               {/* Stepper Toolbar */}
+              {activeCircuitNetlist.inputs.filter((input) => input !== 'CLK').length > 0 && (
+                <div className="circuit-input-switches">
+                  <span className="switch-label">Circuit inputs:</span>
+                  {activeCircuitNetlist.inputs.filter((input) => input !== 'CLK').map((input) => (
+                    <button
+                      key={input}
+                      className={`input-switch ${(circuitInputValues[input] ?? 0) === 1 ? 'on' : 'off'}`}
+                      onClick={() => setCircuitInputValues((current) => ({
+                        ...current,
+                        [input]: current[input] === 1 ? 0 : 1,
+                      }))}
+                    >
+                      <span className="switch-name">{input}</span>
+                      <span className="switch-val">{circuitInputValues[input] ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="circuit-stats-bar">
                 <div className="stat-chip">
                   <span className="stat-label">Clock Pulses</span>
@@ -809,8 +874,23 @@ export const SequentialPage: React.FC = () => {
                       <tr key={i}>
                         <td className="mono-cell highlight-cell">{r.state}</td>
                         <td className="mono-cell">{r.input}</td>
-                        <td className="mono-cell highlight-cell">{r.next}</td>
-                        <td className="mono-cell">{r.output}</td>
+                        <td>
+                          <select
+                            aria-label={`Next state for row ${i + 1}`}
+                            value={r.next}
+                            onChange={(event) => updateFSMRow(i, 'next', event.target.value)}
+                          >
+                            {fsmStateTable.states.map((state) => <option key={state} value={state}>{state}</option>)}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Output for row ${i + 1}`}
+                            className="text-field"
+                            value={r.output}
+                            onChange={(event) => updateFSMRow(i, 'output', event.target.value)}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -821,7 +901,9 @@ export const SequentialPage: React.FC = () => {
               {reductionResult && (
                 <div style={{ marginTop: 14 }}>
                   <div className="verify-badge pass">
-                    ✓ Reduced from {fsmStateTable.states.length + reductionResult.classes.length - reductionResult.reduced.states.length} to {reductionResult.reduced.states.length} states!
+                    {reductionResult.classes.every((group) => group.length === 1)
+                      ? `✓ Already minimal (${reductionResult.reduced.states.length} states).`
+                      : `✓ Reduced from ${reductionResult.classes.reduce((count, group) => count + group.length, 0)} to ${reductionResult.reduced.states.length} states.`}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
                     Equivalence classes: {reductionResult.classes.map((c) => `{${c.join(', ')}}`).join(', ')}
@@ -894,6 +976,31 @@ export const SequentialPage: React.FC = () => {
               <div className="verify-badge pass" style={{ marginTop: 10 }}>
                 ✓ Generated Netlist with {designResult.netlist.nodes.length} nodes saved to global workspace!
               </div>
+              <div className="circuit-stats-bar" style={{ marginTop: 10 }}>
+                {designResult.netlist.nodes
+                  .filter((node): node is FlipFlop => node.kind === 'ff')
+                  .map((ff) => (
+                    <div className="stat-chip variant-chip" key={ff.id} aria-label={`${ff.type} flip-flop ${ff.q}`}>
+                      <span className="stat-label">{ff.type} · CLK</span>
+                      <span className="stat-value">{ff.q} / {ff.qn ?? `${ff.q}′`}</span>
+                    </div>
+                  ))}
+              </div>
+              <h4>Transition and Excitation Table</h4>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>{Object.keys(designResult.transitionTable[0] ?? {}).map((key) => <th key={key}>{key}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {designResult.transitionTable.map((row, index) => (
+                      <tr key={index}>
+                        {Object.values(row).map((value, cellIndex) => <td key={cellIndex} className="mono-cell">{String(value)}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -943,6 +1050,10 @@ export const SequentialPage: React.FC = () => {
               <div className="card">
                 <h3 className="card-title">Derived Equations & Reachability</h3>
                 <div className="circuit-stats-bar" style={{ marginTop: 10 }}>
+                  <div className="stat-chip variant-chip">
+                    <span className="stat-label">Model</span>
+                    <span className="stat-value">{circuitAnalysis.stateTable.model.toUpperCase()}</span>
+                  </div>
                   <div className="stat-chip">
                     <span className="stat-label">Unused States</span>
                     <span className="stat-value">{circuitAnalysis.unusedStates.join(', ') || 'None'}</span>
@@ -1000,6 +1111,7 @@ export const SequentialPage: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <StateDiagramSVG st={circuitAnalysis.stateTable} />
               </div>
             </div>
           )}
