@@ -273,7 +273,12 @@ const BLOCK_CATALOG = [
 
 /* ────────────────────── Main CircuitPage ────────────────────── */
 
-export const CircuitPage: React.FC = () => {
+interface CircuitPageProps {
+  /** Which tab to open first. The workbench links straight to the MSI blocks. */
+  initialTab?: 'schematic' | 'blocks';
+}
+
+export const CircuitPage: React.FC<CircuitPageProps> = ({ initialTab = 'schematic' }) => {
   const {
     parsedExpr,
     truthTable,
@@ -287,7 +292,7 @@ export const CircuitPage: React.FC = () => {
     setInput,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'schematic' | 'blocks'>('schematic');
+  const [activeTab, setActiveTab] = useState<'schematic' | 'blocks'>(initialTab);
   const [inputOverrides, setInputOverrides] = useState<Record<string, 0 | 1>>({});
   const [verifyResult, setVerifyResult] = useState<{ ok: boolean; mismatches: number[] } | null>(null);
   const [deriveSuccess, setDeriveSuccess] = useState(false);

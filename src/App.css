@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: radial-gradient(circle at 15% 15%, rgba(0, 210, 255, 0.04) 0%, transparent 40%),
+  background: radial-gradient(circle at 15% 15%, rgba(184, 255, 61, 0.04) 0%, transparent 40%),
               radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
               var(--bg-primary);
 }
@@ -36,7 +36,7 @@
   letter-spacing: 1px;
   padding: 4px 10px;
   border-radius: 6px;
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
+  box-shadow: 0 0 12px rgba(184, 255, 61, 0.4);
 }
 
 .brand-text h2 {
@@ -154,7 +154,7 @@
 }
 
 .nav-link.active {
-  background: linear-gradient(90deg, rgba(0, 210, 255, 0.12), rgba(0, 210, 255, 0.04));
+  background: linear-gradient(90deg, rgba(184, 255, 61, 0.12), rgba(184, 255, 61, 0.04));
   color: var(--accent-cyan);
   border-left: 3px solid var(--accent-cyan);
   font-weight: 600;
@@ -304,8 +304,8 @@
 }
 
 .chat-placeholder-box {
-  background: rgba(0, 210, 255, 0.05);
-  border: 1px dashed rgba(0, 210, 255, 0.25);
+  background: rgba(184, 255, 61, 0.05);
+  border: 1px dashed rgba(184, 255, 61, 0.25);
   border-radius: 8px;
   padding: 12px;
   font-size: 0.8rem;
@@ -397,8 +397,8 @@
 
 .chat-mode button[aria-pressed="true"] {
   color: var(--accent-cyan);
-  border-color: rgba(0, 210, 255, 0.4);
-  background: rgba(0, 210, 255, 0.08);
+  border-color: rgba(184, 255, 61, 0.4);
+  background: rgba(184, 255, 61, 0.08);
 }
 
 .chat-page-actions button:hover {
@@ -505,10 +505,10 @@
 }
 
 .tab-btn.active {
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.15), rgba(99, 102, 241, 0.15));
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), rgba(99, 102, 241, 0.15));
   border-color: var(--accent-cyan);
   color: var(--text-primary);
-  box-shadow: 0 0 16px rgba(0, 210, 255, 0.15);
+  box-shadow: 0 0 16px rgba(184, 255, 61, 0.15);
 }
 
 /* Formula Input */
@@ -530,7 +530,7 @@
   padding: 16px 20px;
   font-family: var(--font-mono);
   font-size: 1.25rem;
-  color: #00d2ff;
+  color: var(--signal-ink);
   letter-spacing: 0.5px;
   outline: none;
   transition: all 0.2s ease;
@@ -538,7 +538,7 @@
 
 .formula-input:focus {
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+  box-shadow: 0 0 20px rgba(184, 255, 61, 0.2);
 }
 
 .formula-input.input-error {
@@ -605,7 +605,7 @@
 }
 
 .op-chip:hover {
-  background: rgba(0, 210, 255, 0.15);
+  background: rgba(184, 255, 61, 0.15);
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
 }
@@ -654,7 +654,7 @@
   font-size: 1.1rem;
   color: var(--accent-cyan);
   font-family: var(--font-mono);
-  background: rgba(0, 210, 255, 0.1);
+  background: rgba(184, 255, 61, 0.1);
   padding: 3px 8px;
   border-radius: 6px;
   margin-left: 6px;
@@ -686,7 +686,7 @@
 .step-num {
   font-size: 0.72rem;
   font-family: var(--font-mono);
-  background: rgba(0, 210, 255, 0.15);
+  background: rgba(184, 255, 61, 0.15);
   color: var(--accent-cyan);
   width: 20px;
   height: 20px;
@@ -743,7 +743,7 @@
   color: #000;
   font-weight: 700;
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+  box-shadow: 0 0 10px rgba(184, 255, 61, 0.3);
 }
 
 .form-group {
@@ -789,13 +789,13 @@
   padding: 12px 24px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 0 16px rgba(0, 210, 255, 0.35);
+  box-shadow: 0 0 16px rgba(184, 255, 61, 0.35);
   transition: all 0.2s ease;
 }
 
 .btn-primary-large:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 24px rgba(0, 210, 255, 0.5);
+  box-shadow: 0 0 24px rgba(184, 255, 61, 0.5);
 }
 
 .btn-secondary {
@@ -1138,13 +1138,13 @@
 .btn-toggle.active {
   background: var(--accent-cyan);
   color: #000;
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
+  box-shadow: 0 0 12px rgba(184, 255, 61, 0.3);
 }
 
 /* Result Hero Banner */
 .result-hero-card {
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.08), rgba(99, 102, 241, 0.08));
-  border: 1px solid rgba(0, 210, 255, 0.25);
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.08), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(184, 255, 61, 0.25);
   border-radius: 12px;
   padding: 20px 24px;
 }
@@ -1289,7 +1289,7 @@
 
 .kmap-cell:hover {
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.2);
+  box-shadow: 0 0 12px rgba(184, 255, 61, 0.2);
 }
 
 .kmap-cell.cell-hovered {
@@ -1360,7 +1360,7 @@
 
 .group-card:hover, .group-card.hovered {
   border-color: var(--accent-cyan);
-  background: rgba(0, 210, 255, 0.05);
+  background: rgba(184, 255, 61, 0.05);
 }
 
 .group-card.essential-group {
@@ -1552,10 +1552,10 @@
 }
 
 .btn-variant.active {
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.15), rgba(99, 102, 241, 0.15));
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), rgba(99, 102, 241, 0.15));
   color: var(--accent-cyan);
-  border: 1px solid rgba(0, 210, 255, 0.3);
-  box-shadow: 0 0 8px rgba(0, 210, 255, 0.15);
+  border: 1px solid rgba(184, 255, 61, 0.3);
+  box-shadow: 0 0 8px rgba(184, 255, 61, 0.15);
 }
 
 .btn-variant.disabled, .btn-variant:disabled {
@@ -1615,8 +1615,8 @@
 }
 
 .variant-chip {
-  background: rgba(0, 210, 255, 0.08);
-  border-color: rgba(0, 210, 255, 0.2);
+  background: rgba(184, 255, 61, 0.08);
+  border-color: rgba(184, 255, 61, 0.2);
 }
 
 .variant-chip .stat-label {
@@ -1624,7 +1624,7 @@
 }
 
 .variant-chip .stat-value {
-  color: #38bdf8;
+  color: var(--signal-ink);
   text-transform: uppercase;
 }
 
@@ -1714,10 +1714,10 @@
 }
 
 .output-indicator.high {
-  background: rgba(0, 210, 255, 0.15);
-  border: 1px solid rgba(0, 210, 255, 0.4);
+  background: rgba(184, 255, 61, 0.15);
+  border: 1px solid rgba(184, 255, 61, 0.4);
   color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+  box-shadow: 0 0 10px rgba(184, 255, 61, 0.2);
 }
 
 .output-indicator.low {
@@ -1779,13 +1779,13 @@
 }
 
 .btn-verify {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(0, 210, 255, 0.2));
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(184, 255, 61, 0.2));
   border-color: rgba(16, 185, 129, 0.4);
   color: var(--accent-emerald);
 }
 
 .btn-verify:hover {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(0, 210, 255, 0.3));
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(184, 255, 61, 0.3));
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
 
@@ -1850,16 +1850,16 @@
 }
 
 .block-chip:hover {
-  border-color: rgba(0, 210, 255, 0.3);
+  border-color: rgba(184, 255, 61, 0.3);
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .block-chip.active {
   border-color: var(--accent-cyan);
-  background: rgba(0, 210, 255, 0.1);
+  background: rgba(184, 255, 61, 0.1);
   color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(0, 210, 255, 0.15);
+  box-shadow: 0 0 10px rgba(184, 255, 61, 0.15);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1942,8 +1942,8 @@
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 4px;
-  background: rgba(0, 210, 255, 0.08);
-  border: 1px solid rgba(0, 210, 255, 0.2);
+  background: rgba(184, 255, 61, 0.08);
+  border: 1px solid rgba(184, 255, 61, 0.2);
   color: var(--accent-cyan);
 }
 
@@ -2043,8 +2043,8 @@
   gap: 8px;
   padding: 5px 9px;
   color: var(--text-secondary);
-  background: rgba(0, 210, 255, 0.08);
-  border: 1px solid rgba(0, 210, 255, 0.2);
+  background: rgba(184, 255, 61, 0.08);
+  border: 1px solid rgba(184, 255, 61, 0.2);
   border-radius: 6px;
   font: 0.78rem var(--font-mono);
 }
@@ -2175,8 +2175,8 @@
   justify-content: center;
   gap: 7px;
   color: var(--text-primary);
-  background: rgba(0, 210, 255, 0.08);
-  border: 1px solid rgba(0, 210, 255, 0.3);
+  background: rgba(184, 255, 61, 0.08);
+  border: 1px solid rgba(184, 255, 61, 0.3);
   border-radius: 6px;
   text-align: center;
 }
@@ -2390,7 +2390,7 @@
 }
 
 .timing-group-label {
-  fill: #38bdf8;
+  fill: var(--signal-ink);
   font-weight: 700;
 }
 
@@ -2407,7 +2407,7 @@
 
 .timing-signal-path {
   fill: none;
-  stroke: #38bdf8;
+  stroke: var(--signal-ink);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
@@ -2430,7 +2430,7 @@
 }
 
 .timing-edge-marker {
-  fill: #38bdf8;
+  fill: var(--signal-ink);
 }
 
 .timing-glitch-marker {
@@ -2541,8 +2541,8 @@
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 8px 14px;
-  background: var(--accent-blue);
-  color: #fff;
+  background: var(--signal);
+  color: var(--on-signal);
   font: inherit;
   font-weight: 650;
   cursor: pointer;

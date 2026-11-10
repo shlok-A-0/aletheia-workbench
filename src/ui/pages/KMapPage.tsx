@@ -18,7 +18,12 @@ type StoredWorkerResult =
   | { table: TruthTable; result: WorkerMinimization; error?: never }
   | { table: TruthTable; result?: never; error: string };
 
-export const KMapPage: React.FC = () => {
+interface KMapPageProps {
+  /** Rendered inside the workbench: no page header, no Back / Proceed buttons. */
+  embedded?: boolean;
+}
+
+export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const { truthTable, selectedForm, setSelectedForm, setMinResult } = useStore();
 
@@ -133,10 +138,12 @@ export const KMapPage: React.FC = () => {
     const workerError = workerResult && 'error' in workerResult ? workerResult.error : null;
     return (
       <div className="page-container">
-        <div className="page-header">
-          <h1>K-Map &amp; Quine–McCluskey Minimization</h1>
-          <p className="subtitle">Eight-variable minimization runs in the engine Web Worker.</p>
-        </div>
+        {!embedded && (
+          <div className="page-header">
+            <h1>K-Map &amp; Quine–McCluskey Minimization</h1>
+            <p className="subtitle">Eight-variable minimization runs in the engine Web Worker.</p>
+          </div>
+        )}
         <section className="glass-card" role={workerError ? 'alert' : 'status'} aria-busy={!workerError}>
           {workerError ?? 'Minimizing the current truth table in the background…'}
         </section>
@@ -146,13 +153,15 @@ export const KMapPage: React.FC = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h1>K-Map & Quine–McCluskey Minimization</h1>
-        <p className="subtitle">
-          Visual Gray-code Karnaugh map grouping and deterministic Quine–McCluskey tabular reduction
-          with Petrick's expansion.
-        </p>
-      </div>
+      {!embedded && (
+        <div className="page-header">
+          <h1>K-Map & Quine–McCluskey Minimization</h1>
+          <p className="subtitle">
+            Visual Gray-code Karnaugh map grouping and deterministic Quine–McCluskey tabular reduction
+            with Petrick's expansion.
+          </p>
+        </div>
+      )}
 
       {/* Control Toolbar */}
       <div className="kmap-toolbar">
@@ -455,14 +464,16 @@ export const KMapPage: React.FC = () => {
       )}
 
       {/* Action Footer */}
-      <div className="action-footer">
-        <button className="btn-secondary" onClick={() => navigate('/truth-table')}>
-          ← Back to Truth Table
-        </button>
-        <button className="btn-primary-large" onClick={handleProceedToCircuit}>
-          Synthesize Circuit Schematic →
-        </button>
-      </div>
+      {!embedded && (
+        <div className="action-footer">
+          <button className="btn-secondary" onClick={() => navigate('/truth-table')}>
+            ← Back to Truth Table
+          </button>
+          <button className="btn-primary-large" onClick={handleProceedToCircuit}>
+            Synthesize Circuit Schematic →
+          </button>
+        </div>
+      )}
     </div>
   );
 };

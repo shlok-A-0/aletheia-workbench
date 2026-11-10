@@ -16,6 +16,7 @@ interface ChatPanelProps {
 }
 
 const PAGE_SUGGESTIONS: Record<string, string[]> = {
+  '/': ['Why is this the minimal form?', 'Walk me through this truth table.', 'Is this circuit correct?'],
   '/input': ['How does this expression parse?', 'What does this truth table represent?'],
   '/truth-table': ['How do I read these rows?', 'Which rows are minterms?'],
   '/kmap': ['Why is this group valid?', 'Why was this cell not grouped?'],
@@ -111,7 +112,7 @@ export function ChatPanel({ open, page, pageLabel, onClose }: ChatPanelProps) {
   return (
     <aside className={`app-chat-panel ${open ? 'open' : 'closed'}`} aria-label="AI Study Assistant" aria-hidden={!open} inert={!open}>
       <div className="chat-header">
-        <div className="chat-title"><span>🤖</span> AI Study Assistant</div>
+        <div className="chat-title">AI Study Assistant</div>
         <button className="chat-close" onClick={onClose} aria-label="Close AI Study Assistant">✕</button>
       </div>
       <div className="chat-content">

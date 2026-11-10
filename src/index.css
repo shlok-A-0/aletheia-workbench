@@ -1,89 +1,430 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ==========================================================================
+   ALETHEIA DESIGN TOKENS — "Obsidian & Signal" (Neo-Brutalist-Glitch)
+
+   Layers, top to bottom:
+     1. Primitives & semantics   (dark = default)
+     2. Light theme ("Paper")    (secondary; toggled via [data-theme="light"])
+     3. Legacy aliases           (old names -> new tokens; retire as App.css is
+                                  migrated component by component)
+     4. Base, utilities, motion
+   ========================================================================== */
 
 :root {
-  --bg-primary: #0a0d14;
-  --bg-secondary: #0f1422;
-  --bg-tertiary: #161c2e;
-  --bg-glass: rgba(22, 28, 46, 0.7);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: #00d2ff;
+  color-scheme: dark;
 
-  --accent-cyan: #00d2ff;
-  --accent-blue: #3a7bd5;
-  --accent-indigo: #6366f1;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
+  /* --- Surfaces ---------------------------------------------------------- */
+  --canvas: #07080b;          /* page background (Obsidian) */
+  --surface: #0c0e13;         /* panels, cards, tables */
+  --raised: #12151c;          /* hovered / nested surfaces */
+  --inset: #1a1e28;           /* wells, input fields, pressed states */
+  --glass: rgba(12, 14, 19, 0.72);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* --- Lines (1px hairlines are the main structural device) -------------- */
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.22);
 
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* --- Text -------------------------------------------------------------- */
+  --text-1: #f5f6f8;          /* 17.9:1 on --surface */
+  --text-2: #a7aebb;          /*  8.7:1 */
+  --text-3: #8a92a3;          /*  6.2:1 — muted, still AA */
 
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(0, 210, 255, 0.15);
+  /* --- Signal: Acid Lime. Logic 1, "valid", primary action --------------- */
+  --signal: #b8ff3d;          /* fills, active wires, glows */
+  --signal-ink: #b8ff3d;      /* lime used AS TEXT/border (differs in light) */
+  --signal-deep: #6fb800;     /* gradient partner, secondary fills */
+  --on-signal: #07080b;       /* text on a lime fill — 16.6:1 */
+  --signal-dim: rgba(184, 255, 61, 0.12);
+  --signal-glow: 0 0 24px rgba(184, 255, 61, 0.35);
+
+  /* --- Status ------------------------------------------------------------ */
+  --info: #6fdcff;
+  --warn: #ffb84d;
+  --error: #ff6b7a;
+  --ai-hue: #6366f1;          /* AI assistant accent (legacy value) */
+
+  /* --- Lime panel (video reference: pale acid-lime slab with ink type) ---- */
+  --lime-paper: #c9f577;
+  --ink: #0a0b08;
+  --ink-2: rgba(10, 11, 8, 0.62);
+  --topbar-h: 44px;
+
+  /* --- Glitch (chromatic-aberration pair; hover/transition only) --------- */
+  --glitch-r: #ff2e6e;
+  --glitch-c: #29e6ff;
+
+  /* --- Logic-state semantics (use everywhere a bit is shown) ------------- */
+  --logic-1: var(--signal);
+  --logic-0: var(--text-3);
+  --logic-x: var(--warn);
+
+  /* --- Typography -------------------------------------------------------- */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  --fs-label: 0.75rem;                                            /* 12px */
+  --fs-sm: 0.875rem;                                              /* 14px */
+  --fs-md: 1rem;                                                  /* 16px */
+  --fs-lg: 1.25rem;                                               /* 20px */
+  --fs-xl: clamp(1.5rem, 1.1rem + 1.2vw, 2rem);                   /* 24→32 */
+  --fs-section: clamp(2.75rem, 1.5rem + 5.5vw, 6.5rem);           /* section titles */
+  --fs-hero: clamp(3.5rem, 1rem + 11vw, 10rem);                   /* hero formula */
+
+  --lh-display: 0.92;
+  --lh-snug: 1.15;
+  --lh-body: 1.55;
+  --track-display: -0.04em;
+  --track-label: 0.08em;
+
+  /* --- Spacing (4px base) ------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+  --space-7: 64px;
+  --space-8: 96px;
+  --section-gap: clamp(72px, 12vw, 180px);
+  --gutter: clamp(16px, 4vw, 48px);
+
+  /* --- Layout ------------------------------------------------------------ */
+  --content-max: 1200px;
+  --spine-w: 64px;            /* collapsed side legend */
+  --spine-w-open: 220px;      /* expanded on hover/focus */
+  --result-rail-h: 56px;      /* persistent result rail */
+
+  /* --- Shape & depth ----------------------------------------------------- */
+  --r-1: 4px;                 /* controls */
+  --r-2: 8px;                 /* cards */
+  --r-3: 14px;                /* hero panels */
+  --r-pill: 999px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-glow: var(--signal-glow);
+  --shadow-hard: 4px 4px 0 var(--signal);   /* brutalist offset pop */
+  --grid-dots: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px;
+
+  /* --- Motion ------------------------------------------------------------ */
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 520ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-snap: cubic-bezier(0.7, 0, 0.2, 1);
+  --reveal-distance: 24px;
+
+  /* --- Stacking ---------------------------------------------------------- */
+  --z-rail: 30;
+  --z-spine: 40;
+  --z-overlay: 60;
 }
 
-:root[data-theme="light"] {
-  --bg-primary: #f4f7fb;
-  --bg-secondary: #e8edf5;
-  --bg-tertiary: #dbe3ed;
-  --bg-glass: rgba(255, 255, 255, 0.9);
-  --border-color: rgba(15, 23, 42, 0.16);
-  --border-focus: #0369a1;
-  --accent-cyan: #0369a1;
-  --accent-blue: #2563eb;
-  --accent-indigo: #4f46e5;
-  --accent-emerald: #047857;
-  --accent-amber: #b45309;
-  --accent-rose: #be123c;
-  --text-primary: #111827;
-  --text-secondary: #334155;
-  --text-muted: #526174;
-  --shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.08);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.12);
-  --shadow-glow: 0 0 16px rgba(3, 105, 161, 0.12);
+/* ==========================================================================
+   Light theme — "Paper". Secondary; keeps the same semantics.
+   Lime can't be text on paper, so --signal-ink flips to a dark green while
+   --signal stays lime for fills.
+   ========================================================================== */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --canvas: #f7f6f2;
+  --surface: #ffffff;
+  --raised: #efede7;
+  --inset: #e6e3db;
+  --glass: rgba(255, 255, 255, 0.86);
+
+  --line: rgba(11, 12, 15, 0.14);
+  --line-strong: rgba(11, 12, 15, 0.32);
+
+  --text-1: #0b0c0f;          /* 18.1:1 on paper */
+  --text-2: #4a505c;          /*  7.5:1 */
+  --text-3: #69707d;          /*  4.6:1 */
+
+  --signal-ink: #3d7a00;      /*  4.9:1 on paper */
+  --signal-deep: #3d7a00;
+  --signal-dim: rgba(61, 122, 0, 0.1);
+  --signal-glow: 0 0 16px rgba(61, 122, 0, 0.18);
+
+  --info: #0b6e8f;
+  --warn: #9a5b00;
+  --error: #c4243a;
+  --ai-hue: #4f46e5;
+
+  --shadow-sm: 0 1px 2px rgba(11, 12, 15, 0.08);
+  --shadow-md: 0 12px 32px rgba(11, 12, 15, 0.12);
+  --shadow-hard: 4px 4px 0 var(--text-1);
+  --grid-dots: radial-gradient(rgba(11, 12, 15, 0.09) 1px, transparent 1px) 0 0 / 22px 22px;
 }
 
+/* ==========================================================================
+   Legacy aliases. App.css still uses the old names; they now resolve to the
+   new tokens, so the whole app re-themes immediately. Declared on :root so
+   they pick up the light-theme overrides above (same element).
+   ========================================================================== */
+:root {
+  --bg-primary: var(--canvas);
+  --bg-secondary: var(--surface);
+  --bg-tertiary: var(--raised);
+  --bg-surface: var(--surface);   /* was referenced but never defined */
+  --bg-card: var(--surface);      /* was referenced but never defined */
+  --bg-glass: var(--glass);
+  --border-color: var(--line);
+  --border-focus: var(--signal-ink);
+
+  --accent-cyan: var(--signal-ink);
+  --accent-emerald: var(--signal-ink);
+  --accent-blue: var(--signal-deep);
+  --accent-indigo: var(--ai-hue);
+  --accent-amber: var(--warn);
+  --accent-rose: var(--error);
+
+  --text-primary: var(--text-1);
+  --text-secondary: var(--text-2);
+  --text-muted: var(--text-3);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* anchored sections land below the sticky result rail */
+  scroll-padding-top: calc(var(--topbar-h) + var(--result-rail-h) + var(--space-4));
+}
+
 body {
   margin: 0;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--canvas);
+  color: var(--text-1);
   font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 #root {
-  height: 100vh;
-  width: 100vw;
-  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Custom Scrollbar */
+::selection {
+  background: var(--signal);
+  color: var(--on-signal);
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal-ink);
+  outline-offset: 2px;
+  border-radius: var(--r-1);
+}
+
+code,
+kbd,
+samp,
+pre,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: var(--canvas);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
-  border-radius: 3px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--text-3);
+}
+
+/* ==========================================================================
+   Type utilities
+   ========================================================================== */
+.t-hero {
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  font-weight: 700;
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-display);
+}
+
+.t-section {
+  font-family: var(--font-display);
+  font-size: var(--fs-section);
+  font-weight: 700;
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-display);
+  text-wrap: balance;
+}
+
+.t-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.t-mono {
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Motion
+   Section reveal: add .reveal to an element; a JS observer adds .is-in.
+   ========================================================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(var(--reveal-distance));
+}
+
+/* Scanline displacement in (second reference video): the block is revealed
+   in horizontal bands that slide into place, then settles. */
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+  animation: scan-in var(--dur-3) steps(9, end) both;
+}
+
+@keyframes scan-in {
+  0% { clip-path: inset(0 0 100% 0); transform: translateX(-14px); opacity: 0.2; }
+  35% { clip-path: inset(0 0 55% 0); transform: translateX(9px); opacity: 0.8; }
+  60% { clip-path: inset(0 0 22% 0); transform: translateX(-4px); opacity: 1; }
+  100% { clip-path: inset(0 0 0 0); transform: none; opacity: 1; }
+}
+
+/* Reflected, scanline-sliced echo under display type (first reference video).
+   Usage: <h1 class="echo" data-text="LOGIC IN.">LOGIC IN.</h1> */
+.echo {
+  position: relative;
+  margin-bottom: 0.45em;
+}
+
+.echo::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  /* mirror in place: the reflection's near edge touches the original */
+  transform: scaleY(-1);
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+  -webkit-mask-image:
+    repeating-linear-gradient(to bottom, #000 0 5px, transparent 5px 8px),
+    linear-gradient(to bottom, transparent 0%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    repeating-linear-gradient(to bottom, #000 0 5px, transparent 5px 8px),
+    linear-gradient(to bottom, transparent 0%, #000 100%);
+  mask-composite: intersect;
+  clip-path: inset(62% 0 0 0);
+}
+
+/* Chromatic-aberration hover for TITLES ONLY (never on data or formulas).
+   Usage: <h2 class="glitch" data-text="Simplify">Simplify</h2> */
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.glitch::before {
+  color: var(--glitch-r);
+}
+
+.glitch::after {
+  color: var(--glitch-c);
+}
+
+.glitch:hover::before,
+.glitch:hover::after,
+.glitch:focus-visible::before,
+.glitch:focus-visible::after {
+  opacity: 0.85;
+  animation: glitch-slice 360ms steps(2, end) 1;
+}
+
+.glitch:hover::before {
+  transform: translateX(-3px);
+}
+
+.glitch:hover::after {
+  transform: translateX(3px);
+  animation-delay: 40ms;
+}
+
+@keyframes glitch-slice {
+  0% { clip-path: inset(0 0 85% 0); }
+  25% { clip-path: inset(40% 0 35% 0); }
+  50% { clip-path: inset(70% 0 5% 0); }
+  75% { clip-path: inset(15% 0 60% 0); }
+  100% { clip-path: inset(0 0 0 0); opacity: 0; }
+}
+
+/* A lime pulse for the "verified" moment */
+@keyframes signal-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(184, 255, 61, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(184, 255, 61, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+    animation: none;
+    clip-path: none;
+  }
+
+  .glitch::before,
+  .glitch::after {
+    display: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

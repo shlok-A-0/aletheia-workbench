@@ -14,7 +14,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@xyflow/react": "^12.12.1",
     "comlink": "^4.4.2",
+    "elkjs": "^0.12.1",
     "express": "^5.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
