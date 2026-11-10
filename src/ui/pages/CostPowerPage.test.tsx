@@ -28,15 +28,14 @@ afterEach(() => {
 });
 
 describe('CostPowerPage', () => {
-  it('shows IC packages and replaces placeholder cost after entering a price', () => {
+  it('shows IC packages and updates cost after entering a custom price', () => {
     loadCircuit();
     render(<CostPowerPage />);
     expect(screen.getAllByText('7408')).toHaveLength(2);
-    expect(screen.getAllByText('Enter library values')).toHaveLength(2);
+    expect(screen.getByText('0.45')).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('spinbutton', { name: '7408 unit price' }), { target: { value: '4.5' } });
     expect(screen.getByText('4.50')).toBeInTheDocument();
-    expect(screen.getAllByText('Enter library values')).toHaveLength(1);
     expect(JSON.parse(localStorage.getItem('ldam.ic-library.v1') ?? '[]')).toContainEqual(
       expect.objectContaining({ part: '7408', unitPrice: 4.5 })
     );

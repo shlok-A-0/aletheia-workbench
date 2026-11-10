@@ -25,6 +25,8 @@ import {
 } from '../../engine/sequential/fsm';
 import { PageHead } from '../deep/PageHead';
 
+const SchematicView = React.lazy(() => import('../schematic/SchematicView'));
+
 type SeqTab = 'flipflops' | 'counters' | 'fsm' | 'analyze';
 
 const PRESET_FSMS: { name: string; st: StateTable }[] = [
@@ -788,6 +790,20 @@ export const SequentialPage: React.FC = () => {
               )}
 
               {/* Circuit Gates Summary */}
+              <div className="card" style={{ marginBottom: 16 }}>
+                <h3 className="card-title">Circuit Schematic</h3>
+                <div className="wb-schematic dp-schematic" style={{ minHeight: 380 }}>
+                  <React.Suspense fallback={<div className="sch-empty">Routing circuit diagram…</div>}>
+                    <SchematicView
+                      key={selectedCircuitKey}
+                      netlist={activeCircuitNetlist}
+                      inputs={{ ...circuitInputValues, ...currentCircuitState }}
+                      height={380}
+                    />
+                  </React.Suspense>
+                </div>
+              </div>
+
               <div className="card">
                 <h3 className="card-title">Synthesized Netlist Nodes</h3>
                 <div className="table-wrapper">
@@ -988,6 +1004,18 @@ export const SequentialPage: React.FC = () => {
               </div>
               <div className="verify-badge pass" style={{ marginTop: 10 }}>
                 ✓ Generated Netlist with {designResult.netlist.nodes.length} nodes saved to global workspace!
+              </div>
+              <div className="card" style={{ marginTop: 16 }}>
+                <h3 className="card-title">Synthesized Circuit Schematic</h3>
+                <div className="wb-schematic dp-schematic" style={{ minHeight: 440 }}>
+                  <React.Suspense fallback={<div className="sch-empty">Routing synthesized FSM schematic…</div>}>
+                    <SchematicView
+                      key={`fsm-${designResult.netlist.name}-${fsmDesignFF}-${fsmStrategy}`}
+                      netlist={designResult.netlist}
+                      height={440}
+                    />
+                  </React.Suspense>
+                </div>
               </div>
               <div className="circuit-stats-bar" style={{ marginTop: 10 }}>
                 {designResult.netlist.nodes

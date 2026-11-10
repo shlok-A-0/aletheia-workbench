@@ -169,7 +169,79 @@ const WireEdge = memo(function WireEdge({ id, data }: EdgeProps<Edge<WireData>>)
   return <BaseEdge id={id} path={roundedPath(data.points, 6)} className={cls} interactionWidth={0} />;
 });
 
-const nodeTypes = { gate: GateNode, terminal: TerminalNode };
+interface FFData extends Record<string, unknown> {
+  node: SchematicNode;
+  value: Bit;
+}
+
+const FFNode = memo(function FFNode({ data }: NodeProps<Node<FFData>>) {
+  const { node, value } = data;
+  const { width: w, height: h } = node;
+  const ffType = node.ffType ?? 'D';
+  const cls = value === 1 ? 'sch-ff is-1' : value === 0 ? 'sch-ff is-0' : 'sch-ff';
+
+  return (
+    <div
+      className={cls}
+      style={{
+        width: w,
+        height: h,
+        position: 'relative',
+        background: 'var(--surface)',
+        border: '1.5px solid var(--line-strong)',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+          padding: '4px 6px',
+          boxSizing: 'border-box',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '11px',
+          color: 'var(--text-1)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
+            {ffType === 'JK' ? 'J' : ffType === 'T' ? 'T' : 'D'}
+          </span>
+          <span style={{ fontWeight: 700, color: value === 1 ? 'var(--signal-ink)' : 'var(--text-1)' }}>
+            Q
+          </span>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.05em' }}>
+          {ffType}-FF
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: 'var(--text-2)' }}>
+            <svg width="8" height="10" viewBox="0 0 8 10">
+              <path d="M0,1 L7,5 L0,9" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+            CLK
+          </span>
+          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
+            {ffType === 'JK' ? 'K' : node.outPins && node.outPins.length > 1 ? "Q'" : ''}
+          </span>
+        </div>
+      </div>
+      {node.inPins.map((p) => (
+        <Handle key={p.id} id={p.id} type="target" position={Position.Left} style={pinStyle(p.x, p.y, 'l')} isConnectable={false} />
+      ))}
+      {node.outPin && (
+        <Handle id={node.outPin.id} type="source" position={Position.Right} style={pinStyle(node.outPin.x, node.outPin.y, 'r')} isConnectable={false} />
+      )}
+      {node.outPins?.map((p) => (
+        <Handle key={p.id} id={p.id} type="source" position={Position.Right} style={pinStyle(p.x, p.y, 'r')} isConnectable={false} />
+      ))}
+    </div>
+  );
+});
+
+const nodeTypes = { gate: GateNode, terminal: TerminalNode, ff: FFNode };
 const edgeTypes = { wire: WireEdge };
 
 function toFlow(
@@ -179,7 +251,7 @@ function toFlow(
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = layout.nodes.map((n) => ({
     id: n.id,
-    type: n.kind === 'gate' ? 'gate' : 'terminal',
+    type: n.kind === 'gate' ? 'gate' : n.kind === 'ff' ? 'ff' : 'terminal',
     position: { x: n.x, y: n.y },
     width: n.width,
     height: n.height,

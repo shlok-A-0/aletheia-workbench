@@ -1,5 +1,5 @@
 import type { ElkNode, ElkExtendedEdge, ElkPort, ELK } from 'elkjs/lib/elk-api';
-import type { Const, Gate, GateType, Netlist } from '../../engine/types';
+import type { Const, FlipFlop, Gate, GateType, Netlist } from '../../engine/types';
 
 /**
  * Netlist → schematic geometry using ELK (Eclipse Layout Kernel).
@@ -10,7 +10,7 @@ import type { Const, Gate, GateType, Netlist } from '../../engine/types';
  * layer ran straight through gate bodies and collinear wires merged.
  */
 
-export type SchematicKind = 'input' | 'const' | 'gate' | 'output';
+export type SchematicKind = 'input' | 'const' | 'gate' | 'output' | 'ff';
 
 export interface Pin {
   id: string;
@@ -22,6 +22,7 @@ export interface SchematicNode {
   id: string;
   kind: SchematicKind;
   gateType?: GateType;
+  ffType?: string;
   label: string;
   /** Net whose value this node displays (its output net, or the net it sinks). */
   net: string;
@@ -33,6 +34,8 @@ export interface SchematicNode {
   inPins: Pin[];
   /** Output pin, node-relative (absent for output terminals). */
   outPin: Pin | null;
+  /** Additional output pins if multi-output (e.g. Q and Q' on flip-flops). */
+  outPins?: Pin[];
 }
 
 export interface SchematicEdge {
@@ -72,9 +75,9 @@ export function gateSize(type: GateType, fanIn: number): { width: number; height
   return { width: INVERTING.has(type) ? 80 : 72, height: Math.max(46, 16 * fanIn + 14) };
 }
 
-/** True when every node is a plain gate or constant (what the schematic can draw). */
+/** True when every node is a plain gate, constant, or flip-flop (what the schematic can draw). */
 export function isSchematicSupported(netlist: Netlist): boolean {
-  return netlist.nodes.every((node) => node.kind === 'gate' || node.kind === 'const');
+  return netlist.nodes.every((node) => node.kind === 'gate' || node.kind === 'const' || node.kind === 'ff');
 }
 
 /** Engine-generated net names (or_3, and_1, n2…) are noise; show F / F1… instead. */
@@ -97,6 +100,7 @@ const FIXED_SIDE = { 'elk.portConstraints': 'FIXED_SIDE' };
 export function buildElkGraph(netlist: Netlist): Built {
   const gates = netlist.nodes.filter((n): n is Gate => n.kind === 'gate');
   const consts = netlist.nodes.filter((n): n is Const => n.kind === 'const');
+  const flops = netlist.nodes.filter((n): n is FlipFlop => n.kind === 'ff');
 
   const children: ElkNode[] = [];
   const edges: ElkExtendedEdge[] = [];
@@ -150,6 +154,44 @@ export function buildElkGraph(netlist: Netlist): Built {
     driver.set(g.output, { port: `${g.id}.out`, node: g.id });
   }
 
+  for (const f of flops) {
+    const ports: ElkPort[] = [];
+    let inIdx = 0;
+    if (f.type === 'D') {
+      ports.push({ id: `${f.id}.d`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    } else if (f.type === 'T') {
+      ports.push({ id: `${f.id}.t`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    } else if (f.type === 'JK') {
+      ports.push({ id: `${f.id}.j`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    } else if (f.type === 'SR') {
+      ports.push({ id: `${f.id}.s`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    }
+    ports.push({ id: `${f.id}.clk`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    if (f.type === 'JK') {
+      ports.push({ id: `${f.id}.k`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    } else if (f.type === 'SR') {
+      ports.push({ id: `${f.id}.r`, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.index': String(inIdx++) } });
+    }
+
+    ports.push({ id: `${f.id}.q`, layoutOptions: { 'elk.port.side': 'EAST', 'elk.port.index': '0' } });
+    if (f.qn) {
+      ports.push({ id: `${f.id}.qn`, layoutOptions: { 'elk.port.side': 'EAST', 'elk.port.index': '1' } });
+    }
+
+    children.push({
+      id: f.id,
+      width: 64,
+      height: 76,
+      layoutOptions: { 'elk.portConstraints': 'FIXED_ORDER' },
+      ports,
+    });
+    meta.set(f.id, { id: f.id, kind: 'ff', ffType: f.type, label: `${f.type}-FF`, net: f.q });
+    driver.set(f.q, { port: `${f.id}.q`, node: f.id });
+    if (f.qn) {
+      driver.set(f.qn, { port: `${f.id}.qn`, node: f.id });
+    }
+  }
+
   const addEdge = (net: string, toPort: string, toNode: string) => {
     const src = driver.get(net);
     if (!src) return;
@@ -159,6 +201,20 @@ export function buildElkGraph(netlist: Netlist): Built {
   };
 
   for (const g of gates) g.inputs.forEach((net, i) => addEdge(net, `${g.id}.in${i}`, g.id));
+
+  for (const f of flops) {
+    if (f.clk) addEdge(f.clk, `${f.id}.clk`, f.id);
+    if (f.type === 'D' && f.d) addEdge(f.d, `${f.id}.d`, f.id);
+    if (f.type === 'T' && f.t) addEdge(f.t, `${f.id}.t`, f.id);
+    if (f.type === 'JK') {
+      if (f.j) addEdge(f.j, `${f.id}.j`, f.id);
+      if (f.k) addEdge(f.k, `${f.id}.k`, f.id);
+    }
+    if (f.type === 'SR') {
+      if (f.s) addEdge(f.s, `${f.id}.s`, f.id);
+      if (f.r) addEdge(f.r, `${f.id}.r`, f.id);
+    }
+  }
 
   netlist.outputs.forEach((net, i) => {
     const id = `out:${net}:${i}`;
@@ -244,8 +300,10 @@ export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout
       x: (p.x ?? 0) + (p.width ?? 0) / 2,
       y: (p.y ?? 0) + (p.height ?? 0) / 2,
     });
-    const inPins = ports.filter((p) => !p.id.endsWith('.out')).map(toPin);
-    const outPort = ports.find((p) => p.id.endsWith('.out'));
+    const inPins = ports.filter((p) => !p.id.endsWith('.out') && !p.id.endsWith('.q') && !p.id.endsWith('.qn')).map(toPin);
+    const outPorts = ports.filter((p) => p.id.endsWith('.out') || p.id.endsWith('.q') || p.id.endsWith('.qn'));
+    const outPin = outPorts[0] ? toPin(outPorts[0]) : null;
+    const outPins = outPorts.map(toPin);
     return {
       ...m,
       x: child.x ?? 0,
@@ -253,7 +311,8 @@ export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout
       width: child.width ?? 0,
       height: child.height ?? 0,
       inPins,
-      outPin: outPort ? toPin(outPort) : null,
+      outPin,
+      outPins,
     };
   });
 
