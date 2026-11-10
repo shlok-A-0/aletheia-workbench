@@ -313,26 +313,43 @@ export function generateLabReportHtml(state: RootStore): string {
   </div>
 
   <script>
-    // Automatically open print dialog if requested
-    if (window.location.search.includes('print=true')) {
-      window.addEventListener('load', () => window.print());
-    }
+    // Automatically trigger print dialog after page renders
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try { window.print(); } catch (_) {}
+      }, 250);
+    });
   </script>
 </body>
 </html>`;
 }
 
-export function openPrintableLabReport(state: RootStore, autoPrint = true): void {
+export function openPrintableLabReport(state: RootStore): void {
   const html = generateLabReportHtml(state);
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob) + (autoPrint ? '?print=true' : '');
-  const win = window.open(url, '_blank');
-  if (!win) {
-    // If popup blocked, fallback to standard download
+  try {
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      return;
+    }
+  } catch {
+    // Popup or document write fallback
+  }
+
+  // Fallback if popup blocked: direct file download
+  try {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    link.href = url;
     link.download = `aletheia-lab-report-${Date.now()}.html`;
     link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    // ignore
   }
 }
 

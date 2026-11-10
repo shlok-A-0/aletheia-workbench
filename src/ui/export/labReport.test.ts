@@ -38,3 +38,4 @@ describe('generateLabReportHtml', () => {
     expect(html).toContain('window.print()');
   });
 });
+
