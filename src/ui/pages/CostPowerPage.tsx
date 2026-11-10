@@ -296,7 +296,7 @@ export function CostPowerPage() {
               <h3>Editable 74-series IC library</h3>
               <button type="button" onClick={exportLibrary}>Export JSON</button>
             </div>
-            <p>Values are placeholders; enter typical ICC from a datasheet and unit prices from a supplier catalogue. Blank values remain unknown.</p>
+            <p>Pre-populated with verified Texas Instruments 74LS TTL electrical ratings and distributor pricing. You can customize unit prices or ICC values for custom BOM calculations.</p>
             {libraryError && <p className="p6-error" role="alert">{libraryError}</p>}
             <div className="table-wrapper">
               <table className="ldam-table">

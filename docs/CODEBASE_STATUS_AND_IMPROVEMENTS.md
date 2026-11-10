@@ -30,7 +30,7 @@ Aletheia Workbench is an interactive digital logic workbench for computer engine
    - Attached an auto-scrolling viewport observer so scrubbing the playhead past $t \approx 77$ smoothly centers the cursor.
 
 ### Review Verdict:
-**Ship.** All 130 Vitest tests pass across 21 test suites. TypeScript compiles with 0 errors across client and server configs. All changes are minimal, backward-compatible, and follow the neo-brutalist design system.
+**Ship.** All 133 Vitest tests pass across 22 test suites. TypeScript compiles with 0 errors across client and server configs. All changes are minimal, backward-compatible, and follow the neo-brutalist design system.
 
 ---
 
@@ -82,7 +82,7 @@ Aletheia Workbench is an interactive digital logic workbench for computer engine
 ### Verdict:
 **Healthy. Ship.**
 
-- **Test Suite:** 21 suites, 130 tests passing (100% green).
+- **Test Suite:** 22 suites, 133 tests passing (100% green).
 - **Type Safety:** 0 TypeScript diagnostics across client and server.
 - **Lean Delta:** -4 unused arithmetic MSI blocks pruned, 74LS IC library fully grounded in real electrical data, flip-flop schematics unified into standard ELK layout pipeline without external layout dependencies.
 - **Not checked:** Production CDN asset caching headers (since this is deployed as a local college lab tool / desktop web app).

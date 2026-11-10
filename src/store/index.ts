@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { loadLastProject } from './project';
 import { createInputSlice, type InputSlice } from './slices/input';
 import { createMinimizeSlice, type MinimizeSlice } from './slices/minimize';
 import { createCircuitSlice, type CircuitSlice } from './slices/circuit';
@@ -15,6 +16,15 @@ export type RootStore = InputSlice &
 
 export const useStore = create<RootStore>()((...a) => {
   const [set, get] = a;
+  let savedState: ReturnType<typeof loadLastProject> = null;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      savedState = loadLastProject();
+    }
+  } catch {
+    // ignore
+  }
+
   const clearDerivedResults = {
     truthTable: null,
     parsedExpr: null,
@@ -38,6 +48,7 @@ export const useStore = create<RootStore>()((...a) => {
     ...createSequentialSlice(...a),
     ...createTimingSlice(...a),
     ...createAnalysisSlice(...a),
+    ...(savedState ?? {}),
     setInput: (rawInput, mode) => {
       const resolvedMode = mode ?? get().inputMode;
       const sourceMode = resolvedMode === 'expr' ? 'expression' : resolvedMode;

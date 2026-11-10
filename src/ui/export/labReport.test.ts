@@ -46,5 +46,32 @@ describe('generateLabReportHtml', () => {
     expect(html).toContain('@page');
     expect(html).toContain('window.print()');
   });
+
+  it('displays mismatch warning when netlist is not equivalent to truth table', () => {
+    useStore.setState({
+      rawInput: 'F = AB',
+      vars: ['A', 'B'],
+      truthTable: truthTableFromMinterms(['A', 'B'], [3]),
+      activeVariant: 'simplified',
+      netlists: {
+        original: null,
+        simplified: {
+          name: 'buggy_circuit',
+          inputs: ['A', 'B'],
+          outputs: ['F'],
+          nodes: [
+            // OR gate instead of AND gate -> mismatch!
+            { kind: 'gate', id: 'g1', type: 'OR', inputs: ['A', 'B'], output: 'F' },
+          ],
+        },
+        nand: null,
+        nor: null,
+      },
+    });
+
+    const html = generateLabReportHtml(useStore.getState());
+    expect(html).toContain('MISMATCH');
+    expect(html).toContain('Verification Mismatch');
+  });
 });
 

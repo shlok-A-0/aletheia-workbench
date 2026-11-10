@@ -72,6 +72,13 @@ export function BlocksPage() {
   const activeTT = presetTT ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
   const isSample = !presetTT && (!storeTT || storeTT.vars.length < 1);
 
+  // Clear preset override whenever the workbench synthesizes a new truth table
+  const [prevStoreTT, setPrevStoreTT] = useState(storeTT);
+  if (storeTT !== prevStoreTT) {
+    setPrevStoreTT(storeTT);
+    setPresetTT(null);
+  }
+
   // Available MUX configurations based on truth table variables
   const muxConfigs = useMemo(() => {
     const vars = activeTT.vars;
@@ -249,6 +256,20 @@ export function BlocksPage() {
                     {p.label}
                   </button>
                 ))}
+                {presetTT && (
+                  <button
+                    type="button"
+                    className="dp-chip is-on"
+                    onClick={() => {
+                      setPresetTT(null);
+                      setSelectedMuxConfigIdx(0);
+                      setBits({});
+                    }}
+                    title="Clear preset and restore the expression from the Workbench"
+                  >
+                    Reset to Workbench Expression ✕
+                  </button>
+                )}
               </div>
             </div>
 

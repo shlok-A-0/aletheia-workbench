@@ -18,12 +18,20 @@ const INLINE_ROUTES = new Set(['/', '/#circuit']);
 
 function initialSource(): Source {
   const s = useStore.getState();
-  const typed = s.inputMode === 'expr' && s.rawInput && !/^(Example|Circuit):/.test(s.rawInput);
+  if (s.rawInput) {
+    const mode = s.inputMode === 'minterms' || s.inputMode === 'maxterms' ? s.inputMode : 'expr';
+    return {
+      mode,
+      text: s.inputMode === 'minterms' ? (s.mintermsStr || s.rawInput) : s.rawInput,
+      dontCares: s.dontCaresStr || '',
+      numVars: Math.min(Math.max(s.vars.length, 2), 6),
+    };
+  }
   return {
     mode: 'expr',
-    text: typed ? s.rawInput : DEFAULT_EXPR,
+    text: DEFAULT_EXPR,
     dontCares: '',
-    numVars: Math.min(Math.max(s.vars.length, 2), 6),
+    numVars: 3,
   };
 }
 
@@ -50,9 +58,12 @@ export function Hero() {
     }, delay);
   }, []);
 
-  // A fresh page is never empty: build the default function straight away.
+  // A fresh page is never empty: build the default function only if nothing is loaded or restored
   useEffect(() => {
-    if (!useStore.getState().truthTable) run(src, 0);
+    const s = useStore.getState();
+    if (!s.truthTable && !s.rawInput) {
+      run(src, 0);
+    }
     return () => window.clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

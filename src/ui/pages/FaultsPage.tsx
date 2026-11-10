@@ -76,7 +76,9 @@ export function FaultsPage() {
     }
   }, [netlist, backgroundReport]);
   const report = reportResult.report;
-  const fault = report?.table.find((entry) => entry.net === selectedNet && entry.stuckAt === stuckAt)
+  const effectiveNet = selectedNet || report?.table[0]?.net || '';
+  const fault = report?.table.find((entry) => entry.net === effectiveNet && entry.stuckAt === stuckAt)
+    ?? report?.table.find((entry) => entry.stuckAt === stuckAt)
     ?? report?.table[0];
   const inputs = netlist?.inputs ?? NO_INPUTS;
   const normalizedVector = inputs.map((_, index) => vector[index] ?? 0);

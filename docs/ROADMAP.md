@@ -49,4 +49,4 @@ This document tracks all completed fixes, active UX & architectural enhancements
 | Target | Command | Status |
 |:---|:---|:---:|
 | TypeScript Compiler | `pnpm run typecheck` | Passing (0 errors) |
-| Test Suite (129 tests) | `pnpm test` | Passing (21 suites, 129 tests) |
+| Test Suite (133 tests) | `pnpm test` | Passing (22 suites, 133 tests) |

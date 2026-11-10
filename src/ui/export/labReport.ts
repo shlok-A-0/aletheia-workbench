@@ -1,5 +1,5 @@
 import type { RootStore } from '../../store';
-import { gateCount, pathDepth, specifiedPathDelay } from '../../engine/circuit/simulate';
+import { gateCount, pathDepth, specifiedPathDelay, verify } from '../../engine/circuit/simulate';
 import { DEFAULT_IC_LIBRARY, mapToICs } from '../../engine/analysis/ic-map';
 import { runFaultTest } from '../../engine/analysis/fault';
 import { generateSchematicSvg } from '../schematic/elkLayout';
@@ -73,8 +73,12 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
   }
 
   const faultCov = faultReport
-    ? `${(faultReport.coverage * 100).toFixed(1)}%`
+    ? `${faultReport.coverage.toFixed(1)}%`
     : 'Not computed';
+
+  // Hardware verification against truth table
+  const vResult = (activeNetlist && state.truthTable) ? verify(activeNetlist, state.truthTable) : null;
+  const isVerified = vResult?.ok ?? false;
 
   const testVectors = faultReport?.minimalTestSet?.map((v) =>
     `<code>[${v.join(', ')}]</code>`
@@ -231,7 +235,7 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
       </div>
       <div class="meta-box">
         <div>Generated: <strong>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</strong></div>
-        <div>Status: <strong>Synthesis Verified</strong></div>
+        <div>Status: <strong>${isVerified ? 'Synthesis Verified' : 'Verification Mismatch'}</strong></div>
       </div>
     </header>
 
@@ -320,9 +324,15 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
     </table>
 
     <h2>5. Hardware Verification &amp; Fault Coverage</h2>
-    <div class="verdict-box">
-      &#10003; Verification Status: FUNCTIONALLY EQUIVALENT TO TRUTH TABLE
-    </div>
+    ${
+      isVerified
+        ? `<div class="verdict-box">
+            &#10003; Verification Status: FUNCTIONALLY EQUIVALENT TO TRUTH TABLE (100% Match)
+          </div>`
+        : `<div class="verdict-box" style="border-color:#ef4444;background:#fef2f2;color:#b91c1c;">
+            &#10007; Verification Status: ${vResult ? `MISMATCH (${vResult.mismatches.length} row(s) differ from Truth Table)` : 'NOT VERIFIED'}
+          </div>`
+    }
     <div class="grid-2">
       <div class="stat-chip">
         <strong>Stuck-At Fault Coverage</strong>
