@@ -100,16 +100,16 @@ export function MsiBlockDiagram({
         >
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--accent-lime, #a3e635)" />
+              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--signal-ink)" />
             </marker>
             <marker id="arrow-dim" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1 L 8 5 L 0 9 z" fill="#64748b" />
+              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--text-3)" />
             </marker>
             <marker id="arrow-up" viewBox="0 0 10 10" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M 1 8 L 5 0 L 9 8 z" fill="var(--accent-lime, #a3e635)" />
+              <path d="M 1 8 L 5 0 L 9 8 z" fill="var(--signal-ink)" />
             </marker>
             <marker id="arrow-up-dim" viewBox="0 0 10 10" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M 1 8 L 5 0 L 9 8 z" fill="#64748b" />
+              <path d="M 1 8 L 5 0 L 9 8 z" fill="var(--text-3)" />
             </marker>
           </defs>
 
@@ -120,15 +120,15 @@ export function MsiBlockDiagram({
             width={boxW}
             height={boxH}
             rx={6}
-            fill="#0b1329"
-            stroke="var(--accent-lime, #a3e635)"
+            fill="var(--inset)"
+            stroke="var(--signal-ink)"
             strokeWidth={2.5}
           />
           <text
             x={boxX + boxW / 2}
             y={boxY + boxH / 2 - 8}
             textAnchor="middle"
-            fill="#ffffff"
+            fill="var(--text-1)"
             fontSize="22"
             fontWeight="800"
             fontFamily="var(--font-mono, monospace)"
@@ -139,7 +139,7 @@ export function MsiBlockDiagram({
             x={boxX + boxW / 2}
             y={boxY + boxH / 2 + 18}
             textAnchor="middle"
-            fill="var(--accent-lime, #a3e635)"
+            fill="var(--signal-ink)"
             fontSize="14"
             fontWeight="700"
             letterSpacing="2"
@@ -151,7 +151,7 @@ export function MsiBlockDiagram({
           {residues.map((r, d) => {
             const y = boxY + 30 + d * lineSpacing;
             const isSelected = d === currentSelectIdx;
-            const strokeColor = isSelected ? 'var(--accent-lime, #a3e635)' : '#475569';
+            const strokeColor = isSelected ? 'var(--signal-ink)' : 'var(--line-strong)';
             const wireWidth = isSelected ? 2.5 : 1.5;
 
             return (
@@ -170,7 +170,7 @@ export function MsiBlockDiagram({
                 <text
                   x={boxX + 10}
                   y={y + 4}
-                  fill={isSelected ? '#ffffff' : '#94a3b8'}
+                  fill={isSelected ? 'var(--text-1)' : 'var(--text-2)'}
                   fontSize="12"
                   fontWeight={isSelected ? '700' : '500'}
                   fontFamily="monospace"
@@ -182,7 +182,7 @@ export function MsiBlockDiagram({
                   x={70}
                   y={y + 4}
                   textAnchor="end"
-                  fill={isSelected ? 'var(--accent-lime, #a3e635)' : '#cbd5e1'}
+                  fill={isSelected ? 'var(--signal-ink)' : 'var(--text-1)'}
                   fontSize="12"
                   fontWeight="700"
                   fontFamily="monospace"
@@ -201,21 +201,21 @@ export function MsiBlockDiagram({
                   width={22}
                   height={16}
                   rx={3}
-                  fill={isSelected ? 'rgba(163, 230, 53, 0.2)' : '#1e293b'}
-                  stroke={isSelected ? 'var(--accent-lime, #a3e635)' : '#334155'}
+                  fill={isSelected ? 'var(--signal-dim)' : 'var(--raised)'}
+                  stroke={isSelected ? 'var(--signal-ink)' : 'var(--line)'}
                 />
                 <text
                   x={151}
                   y={y + 4}
                   textAnchor="middle"
-                  fill={isSelected ? 'var(--accent-lime, #a3e635)' : '#94a3b8'}
+                  fill={isSelected ? 'var(--signal-ink)' : 'var(--text-2)'}
                   fontSize="10"
                   fontWeight="700"
                 >
                   {r.currentVal}
                 </text>
                 {isSelected && (
-                  <circle cx={boxX - 8} cy={y} r={3} fill="var(--accent-lime, #a3e635)" />
+                  <circle cx={boxX - 8} cy={y} r={3} fill="var(--signal-ink)" />
                 )}
               </g>
             );
@@ -225,7 +225,7 @@ export function MsiBlockDiagram({
           {selectVars.map((sVar, i) => {
             const x = boxX + (i + 1) * (boxW / (k + 1));
             const bit = inputs[sVar] ?? 0;
-            const strokeColor = bit === 1 ? 'var(--accent-lime, #a3e635)' : '#475569';
+            const strokeColor = bit === 1 ? 'var(--signal-ink)' : 'var(--line-strong)';
             const sPinIndex = k - 1 - i;
 
             return (
@@ -249,7 +249,7 @@ export function MsiBlockDiagram({
                   x={x}
                   y={boxY + boxH - 8}
                   textAnchor="middle"
-                  fill="#94a3b8"
+                  fill="var(--text-2)"
                   fontSize="11"
                   fontWeight="600"
                   fontFamily="monospace"
@@ -261,7 +261,7 @@ export function MsiBlockDiagram({
                   x={x}
                   y={boxY + boxH + 68}
                   textAnchor="middle"
-                  fill="#ffffff"
+                  fill="var(--text-1)"
                   fontSize="13"
                   fontWeight="700"
                   fontFamily="monospace"
@@ -278,14 +278,14 @@ export function MsiBlockDiagram({
             y1={boxY + boxH / 2}
             x2={boxX + boxW + 80}
             y2={boxY + boxH / 2}
-            stroke={outVal === 1 ? 'var(--accent-lime, #a3e635)' : '#475569'}
+            stroke={outVal === 1 ? 'var(--signal-ink)' : 'var(--line-strong)'}
             strokeWidth={3}
             markerEnd={outVal === 1 ? 'url(#arrow)' : 'url(#arrow-dim)'}
           />
           <text
             x={boxX + boxW + 90}
             y={boxY + boxH / 2 - 4}
-            fill="#ffffff"
+            fill="var(--text-1)"
             fontSize="14"
             fontWeight="700"
           >
@@ -294,7 +294,7 @@ export function MsiBlockDiagram({
           <text
             x={boxX + boxW + 90}
             y={boxY + boxH / 2 + 16}
-            fill={outVal === 1 ? 'var(--accent-lime, #a3e635)' : '#94a3b8'}
+            fill={outVal === 1 ? 'var(--signal-ink)' : 'var(--text-2)'}
             fontSize="18"
             fontWeight="800"
             fontFamily="monospace"
@@ -352,10 +352,10 @@ export function MsiBlockDiagram({
         >
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--accent-lime, #a3e635)" />
+              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--signal-ink)" />
             </marker>
             <marker id="arrow-dim" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M 0 1 L 8 5 L 0 9 z" fill="#64748b" />
+              <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--text-3)" />
             </marker>
           </defs>
 
@@ -366,15 +366,15 @@ export function MsiBlockDiagram({
             width={boxW}
             height={boxH}
             rx={6}
-            fill="#0b1329"
-            stroke="var(--accent-lime, #a3e635)"
+            fill="var(--inset)"
+            stroke="var(--signal-ink)"
             strokeWidth={2.5}
           />
           <text
             x={boxX + boxW / 2}
             y={boxY + boxH / 2 - 8}
             textAnchor="middle"
-            fill="#ffffff"
+            fill="var(--text-1)"
             fontSize="18"
             fontWeight="800"
             fontFamily="monospace"
@@ -385,7 +385,7 @@ export function MsiBlockDiagram({
             x={boxX + boxW / 2}
             y={boxY + boxH / 2 + 16}
             textAnchor="middle"
-            fill="var(--accent-lime, #a3e635)"
+            fill="var(--signal-ink)"
             fontSize="14"
             fontWeight="700"
             letterSpacing="2"
@@ -409,7 +409,7 @@ export function MsiBlockDiagram({
                   y1={y}
                   x2={boxX}
                   y2={y}
-                  stroke={bit === 1 ? 'var(--accent-lime, #a3e635)' : '#475569'}
+                  stroke={bit === 1 ? 'var(--signal-ink)' : 'var(--line-strong)'}
                   strokeWidth={2}
                   markerEnd={bit === 1 ? 'url(#arrow)' : 'url(#arrow-dim)'}
                 />
@@ -417,7 +417,7 @@ export function MsiBlockDiagram({
                   x={30}
                   y={y + 5}
                   textAnchor="end"
-                  fill="#ffffff"
+                  fill="var(--text-1)"
                   fontSize="13"
                   fontWeight="700"
                   fontFamily="monospace"
@@ -436,7 +436,7 @@ export function MsiBlockDiagram({
 
             // Route wire to OR gate if active minterm
             const wireEnd = isMinterm ? orGateX : boxX + boxW + 40;
-            const strokeColor = isActive ? 'var(--accent-lime, #a3e635)' : isMinterm ? '#38bdf8' : '#334155';
+            const strokeColor = isActive ? 'var(--signal-ink)' : isMinterm ? 'var(--logic-x)' : 'var(--line)';
 
             return (
               <g key={m}>
@@ -452,7 +452,7 @@ export function MsiBlockDiagram({
                 <text
                   x={boxX + boxW + 12}
                   y={y + 4}
-                  fill={isActive ? 'var(--accent-lime, #a3e635)' : isMinterm ? '#38bdf8' : '#64748b'}
+                  fill={isActive ? 'var(--signal-ink)' : isMinterm ? 'var(--logic-x)' : 'var(--text-3)'}
                   fontSize="11"
                   fontWeight="600"
                   fontFamily="monospace"
@@ -469,15 +469,15 @@ export function MsiBlockDiagram({
               {/* OR gate body */}
               <path
                 d={`M0,0 Q${orGateW * 0.55},0 ${orGateW},${orGateH / 2} Q${orGateW * 0.55},${orGateH} 0,${orGateH} Q${orGateW * 0.28},${orGateH / 2} 0,0 Z`}
-                fill="#0f172a"
-                stroke={finalY === 1 ? 'var(--accent-lime, #a3e635)' : '#94a3b8'}
+                fill="var(--surface)"
+                stroke={finalY === 1 ? 'var(--signal-ink)' : 'var(--text-2)'}
                 strokeWidth={2}
               />
               <text
                 x={orGateW * 0.45}
                 y={orGateH / 2 + 5}
                 textAnchor="middle"
-                fill="#ffffff"
+                fill="var(--text-1)"
                 fontSize="12"
                 fontWeight="700"
               >
@@ -489,14 +489,14 @@ export function MsiBlockDiagram({
                 y1={orGateH / 2}
                 x2={orGateW + 60}
                 y2={orGateH / 2}
-                stroke={finalY === 1 ? 'var(--accent-lime, #a3e635)' : '#475569'}
+                stroke={finalY === 1 ? 'var(--signal-ink)' : 'var(--line-strong)'}
                 strokeWidth={3}
                 markerEnd={finalY === 1 ? 'url(#arrow)' : 'url(#arrow-dim)'}
               />
               <text
                 x={orGateW + 70}
                 y={orGateH / 2 - 4}
-                fill="#ffffff"
+                fill="var(--text-1)"
                 fontSize="13"
                 fontWeight="700"
               >
@@ -505,7 +505,7 @@ export function MsiBlockDiagram({
               <text
                 x={orGateW + 70}
                 y={orGateH / 2 + 18}
-                fill={finalY === 1 ? 'var(--accent-lime, #a3e635)' : '#94a3b8'}
+                fill={finalY === 1 ? 'var(--signal-ink)' : 'var(--text-2)'}
                 fontSize="18"
                 fontWeight="800"
                 fontFamily="monospace"
@@ -582,15 +582,15 @@ export function MsiBlockDiagram({
           width={220}
           height={240}
           rx={6}
-          fill="#0b1329"
-          stroke="var(--accent-lime, #a3e635)"
+          fill="var(--inset)"
+          stroke="var(--signal-ink)"
           strokeWidth={2.5}
         />
         <text
           x={310}
           y={150}
           textAnchor="middle"
-          fill="#ffffff"
+          fill="var(--text-1)"
           fontSize="20"
           fontWeight="800"
           fontFamily="monospace"
@@ -609,32 +609,32 @@ export function MsiBlockDiagram({
         {isBcd && (
           /* Render live 7-segment display on the right */
           <g transform="translate(480, 100)">
-            <rect width="80" height="120" rx="6" fill="#000000" stroke="#334155" strokeWidth="2" />
+            <rect width="80" height="120" rx="6" fill="var(--canvas)" stroke="var(--line-strong)" strokeWidth="2" />
             {/* Segment a */}
-            <rect x="18" y="14" width="44" height="8" rx="2" fill={activeSegments[0] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="18" y="14" width="44" height="8" rx="2" fill={activeSegments[0] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment b */}
-            <rect x="60" y="24" width="8" height="34" rx="2" fill={activeSegments[1] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="60" y="24" width="8" height="34" rx="2" fill={activeSegments[1] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment c */}
-            <rect x="60" y="62" width="8" height="34" rx="2" fill={activeSegments[2] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="60" y="62" width="8" height="34" rx="2" fill={activeSegments[2] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment d */}
-            <rect x="18" y="98" width="44" height="8" rx="2" fill={activeSegments[3] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="18" y="98" width="44" height="8" rx="2" fill={activeSegments[3] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment e */}
-            <rect x="12" y="62" width="8" height="34" rx="2" fill={activeSegments[4] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="12" y="62" width="8" height="34" rx="2" fill={activeSegments[4] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment f */}
-            <rect x="12" y="24" width="8" height="34" rx="2" fill={activeSegments[5] === '1' ? '#ef4444' : '#262626'} />
+            <rect x="12" y="24" width="8" height="34" rx="2" fill={activeSegments[5] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
             {/* Segment g */}
-            <rect x="18" y="56" width="44" height="8" rx="2" fill={activeSegments[6] === '1' ? '#ef4444' : '#262626'} />
-            <text x="40" y="136" textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="700">Digit: {bcdDigit < 10 ? bcdDigit : 'Invalid'}</text>
+            <rect x="18" y="56" width="44" height="8" rx="2" fill={activeSegments[6] === '1' ? 'var(--accent-rose)' : 'var(--line)'} />
+            <text x="40" y="136" textAnchor="middle" fill="var(--text-2)" fontSize="11" fontWeight="700">Digit: {bcdDigit < 10 ? bcdDigit : 'Invalid'}</text>
           </g>
         )}
 
         {/* Inputs on left */}
-        <text x="180" y="80" textAnchor="end" fill="#ffffff" fontSize="12" fontWeight="700" fontFamily="monospace">
+        <text x="180" y="80" textAnchor="end" fill="var(--text-1)" fontSize="12" fontWeight="700" fontFamily="monospace">
           Inputs: {Object.entries(inputs).map(([k, v]) => `${k}=${v}`).join(', ') || 'Default 0'}
         </text>
 
         {/* Outputs on right */}
-        <text x="440" y="80" textAnchor="start" fill="var(--accent-lime, #a3e635)" fontSize="12" fontWeight="700" fontFamily="monospace">
+        <text x="440" y="80" textAnchor="start" fill="var(--signal-ink)" fontSize="12" fontWeight="700" fontFamily="monospace">
           Outputs: {Object.entries(outputValues).map(([k, v]) => `${k}=${v}`).join(', ')}
         </text>
       </svg>

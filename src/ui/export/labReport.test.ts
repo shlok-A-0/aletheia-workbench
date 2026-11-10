@@ -73,5 +73,20 @@ describe('generateLabReportHtml', () => {
     expect(html).toContain('MISMATCH');
     expect(html).toContain('Verification Mismatch');
   });
+
+  it('keeps user-controlled text inert (no script or attribute injection)', () => {
+    useStore.setState({
+      rawInput: '<script>alert(1)</script><img src=x onerror=alert(2)>',
+      vars: ['A', '<b>B</b>'],
+      truthTable: truthTableFromMinterms(['A', 'B'], [1]),
+      activeVariant: 'simplified',
+      netlists: { original: null, simplified: null, nand: null, nor: null },
+    });
+    const html = generateLabReportHtml(useStore.getState());
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).not.toContain('<img src=x');
+    expect(html).not.toContain('<b>B</b>');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
 });
 

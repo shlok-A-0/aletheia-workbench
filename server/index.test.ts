@@ -84,6 +84,30 @@ describe('POST /api/chat', () => {
     });
   });
 
+  it('keys the limit on the forwarded client address, not the proxy', async () => {
+    const adapter = mockAdapter();
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1 }, async (baseUrl) => {
+      const send = (ip: string) => fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+        body: JSON.stringify(validRequest),
+      });
+      expect((await send('203.0.113.1')).status).toBe(200);
+      expect((await send('203.0.113.1')).status).toBe(429);
+      expect((await send('203.0.113.2')).status).toBe(200);
+    });
+  });
+
+  it('caps all callers combined with the global limit', async () => {
+    const adapter = mockAdapter();
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 100, globalLimit: 2 }, async (baseUrl) => {
+      expect((await post(baseUrl, validRequest)).status).toBe(200);
+      expect((await post(baseUrl, validRequest)).status).toBe(200);
+      expect((await post(baseUrl, validRequest)).status).toBe(429);
+      expect(adapter.generate).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('passes context, policy, hint mode, and off-topic user content to the adapter without leaking the key', async () => {
     const apiKey = 'service-secret-value';
     const adapter = mockAdapter(apiKey);

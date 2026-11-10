@@ -13,6 +13,7 @@ import {
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_CONTEXT_LENGTH = 2_000;
+const DEFAULT_GLOBAL_LIMIT = 300;
 const DEFAULT_RATE_LIMIT = 20;
 const DEFAULT_RATE_WINDOW_MS = 60_000;
 
@@ -24,6 +25,8 @@ export interface ServerOptions {
   clientOrigin?: string;
   rateLimit?: number;
   rateWindowMs?: number;
+  /** Ceiling for all callers combined per window, so one warm instance bounds spend. */
+  globalLimit?: number;
 }
 
 interface ChatRequestBody {
@@ -212,6 +215,9 @@ export function createApp(options: ServerOptions = {}) {
   const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT);
   const rateLimit = options.rateLimit ?? (configuredRateLimit > 0 ? configuredRateLimit : DEFAULT_RATE_LIMIT);
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
+  const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT);
+  const globalLimit = options.globalLimit ?? (configuredGlobal > 0 ? configuredGlobal : DEFAULT_GLOBAL_LIMIT);
+  const global = { count: 0, resetAt: 0 };
   const requestsByIp = new Map<string, { count: number; resetAt: number }>();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
@@ -236,7 +242,18 @@ export function createApp(options: ServerOptions = {}) {
 
   app.post('/api/chat', async (req: Request, res: Response) => {
     const now = Date.now();
-    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    // Behind Vercel/most proxies req.ip is the proxy, which would put every visitor in one bucket.
+    const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
+    const ip = forwarded || req.get('x-real-ip') || req.ip || req.socket.remoteAddress || 'unknown';
+    if (global.resetAt <= now) {
+      global.count = 0;
+      global.resetAt = now + rateWindowMs;
+    }
+    if (global.count >= globalLimit) {
+      res.status(429).json({ error: 'rate_limited' });
+      return;
+    }
+    global.count++;
     if (requestsByIp.size > 5000) requestsByIp.clear();
     for (const [address, entry] of requestsByIp) {
       if (entry.resetAt <= now) requestsByIp.delete(address);

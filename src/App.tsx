@@ -54,6 +54,11 @@ export const App: React.FC = () => {
 
   const currentNav = navItems.find((item) => item.path === location.pathname);
 
+  // Keep the current page's link visible when the nav scrolls sideways on phones.
+  useEffect(() => {
+    document.querySelector('.shell-nav a.is-active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [location.pathname]);
+
   useEffect(() => {
     let timer = 0;
     const unsubscribe = useStore.subscribe((state) => {

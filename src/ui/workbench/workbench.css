@@ -1349,6 +1349,11 @@ button.sch-term-hit:hover {
 }
 
 @media (max-width: 560px) {
+  /* decorative squares collide with copy at this width */
+  .wb-px { display: none; }
+
+  .wb-hero-title.echo { margin-bottom: 0.9em; }
+
   .wb-seg--sm {
     max-width: 100%;
     overflow-x: auto;
