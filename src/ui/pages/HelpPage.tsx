@@ -9,7 +9,7 @@ const concepts = [
   { name: 'SOP and POS', page: 'K-Map & QM', path: '/kmap', description: 'Sum-of-products ORs product terms; product-of-sums ANDs sum terms.' },
   { name: 'Don’t-care conditions', page: 'Boolean Input', path: '/input', description: 'Mark input combinations whose output may be chosen to simplify the circuit.' },
   { name: 'Combinational circuits', page: 'Circuit Schematic', path: '/circuit', description: 'Compute outputs solely from the current values of the inputs.' },
-  { name: 'MSI blocks', page: 'Building Blocks', path: '/blocks', description: 'Use standard functional blocks such as multiplexers, decoders, and adders.' },
+  { name: 'MSI blocks', page: 'Building Blocks', path: '/blocks', description: 'Use standard functional blocks such as multiplexers, decoders, and encoders, or realize expressions with MUX.' },
   { name: 'Sequential circuits and flip-flops', page: 'Sequential / FSM', path: '/sequential', description: 'Store state and update it on clock edges using D, JK, T, or SR flip-flops.' },
   { name: 'Finite-state machines', page: 'Sequential / FSM', path: '/sequential', description: 'Model behavior as states, input-dependent transitions, and outputs.' },
   { name: 'Moore and Mealy machines', page: 'Sequential / FSM', path: '/sequential', description: 'Moore outputs depend on state; Mealy outputs depend on state and current input.' },

@@ -72,7 +72,7 @@ export function CircuitSection() {
               <li key={type}><span className="t-label">{type}</span><b>{count}</b></li>
             ))}
             <li className="wb-gate-link">
-              <Link to="/blocks">Standard blocks: adders, muxes, decoders →</Link>
+              <Link to="/blocks">Standard blocks: MUX, decoders, MSI realization →</Link>
             </li>
           </ul>
         </>

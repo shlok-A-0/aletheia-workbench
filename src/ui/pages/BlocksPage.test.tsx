@@ -40,3 +40,4 @@ describe('BlocksPage', () => {
     expect(screen.queryByRole('button', { name: 'Comparator 4-bit' })).not.toBeInTheDocument();
   });
 });
+

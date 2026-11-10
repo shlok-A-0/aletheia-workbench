@@ -4,7 +4,7 @@
  * truth table extraction, and equivalence verification against golden TruthTables.
  */
 
-import type { Netlist, NetId, TruthTable, Gate, Const } from '../types';
+import type { Netlist, NetId, TruthTable, Gate, Const, FlipFlop } from '../types';
 import { CombinationalLoopError } from './generate';
 
 export function gateValue(type: Gate['type'], inVals: (0 | 1)[]): 0 | 1 {
@@ -35,6 +35,13 @@ export function evaluate(
     if (node.kind === 'const') {
       const c = node as Const;
       values[c.output] = c.value;
+    } else if (node.kind === 'ff') {
+      const f = node as FlipFlop;
+      const qVal = inputs[f.q] ?? 0;
+      values[f.q] = qVal;
+      if (f.qn) {
+        values[f.qn] = inputs[f.qn] ?? ((1 - qVal) as 0 | 1);
+      }
     }
   }
 

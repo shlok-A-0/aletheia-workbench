@@ -110,4 +110,13 @@ describe('ELK schematic layout', () => {
     expect(d.endsWith('L40,40')).toBe(true);
     expect(d).toContain('Q40,0');
   });
+
+  it('lays out a synchronous counter with flip-flops orthogonally', async () => {
+    const { syncCounter } = await import('../../engine/sequential/library');
+    const nl = syncCounter(2, 'up', 'JK');
+    const layout = await layoutSchematic(nl);
+    expect(layout.nodes.some((n) => n.kind === 'ff')).toBe(true);
+    expect(layout.edges.length).toBeGreaterThan(0);
+    expect(orthogonal(layout)).toBe(true);
+  });
 });
