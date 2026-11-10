@@ -60,10 +60,9 @@ export function Hero() {
 
   // A fresh page is never empty: build the default function only if nothing is loaded or restored
   useEffect(() => {
-    const s = useStore.getState();
-    if (!s.truthTable && !s.rawInput) {
-      run(src, 0);
-    }
+    // Guard on the derived table, not rawInput: the store's default rawInput is
+    // non-empty, so checking it left a first-time visitor with an empty page.
+    if (!useStore.getState().truthTable) run(src, 0);
     return () => window.clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
