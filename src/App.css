@@ -5,7 +5,7 @@
   height: 100vh;
   width: 100vw;
   background: radial-gradient(circle at 15% 15%, rgba(184, 255, 61, 0.04) 0%, transparent 40%),
-              radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
+              radial-gradient(circle at 85% 85%, var(--line-strong) 0%, transparent 40%),
               var(--bg-primary);
 }
 
@@ -30,7 +30,7 @@
 
 .logo-badge {
   background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-  color: #000;
+  color: var(--on-signal);
   font-weight: 800;
   font-size: 0.85rem;
   letter-spacing: 1px;
@@ -80,9 +80,9 @@
 }
 
 .btn-chat-toggle {
-  background: rgba(99, 102, 241, 0.12);
-  color: #c7d2fe;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--line-strong);
+  color: var(--text-2);
+  border: 1px solid var(--line-strong);
   padding: 6px 14px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -96,8 +96,8 @@
 
 .btn-chat-toggle:hover, .btn-chat-toggle.active {
   background: var(--accent-indigo);
-  color: #fff;
-  box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+  color: var(--text-1);
+  box-shadow: 0 0 16px var(--line-strong);
 }
 
 /* App Body */
@@ -341,9 +341,9 @@
 }
 
 .prompt-chip:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
+  background: var(--line-strong);
+  border-color: var(--line-strong);
+  color: var(--text-2);
 }
 
 .chat-footer {
@@ -367,7 +367,7 @@
 
 .chat-send {
   background: var(--accent-indigo);
-  color: #fff;
+  color: var(--text-1);
   border: none;
   padding: 8px 14px;
   border-radius: 6px;
@@ -429,11 +429,11 @@
 }
 
 .chat-offline {
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .chat-error {
-  color: #fecaca;
+  color: var(--accent-rose);
 }
 
 .chat-message {
@@ -444,8 +444,8 @@
 }
 
 .chat-message.user {
-  border-color: rgba(99, 102, 241, 0.25);
-  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--line-strong);
+  background: var(--line-strong);
 }
 
 .chat-message-role {
@@ -505,7 +505,7 @@
 }
 
 .tab-btn.active {
-  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), rgba(99, 102, 241, 0.15));
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), var(--line-strong));
   border-color: var(--accent-cyan);
   color: var(--text-primary);
   box-shadow: 0 0 16px rgba(184, 255, 61, 0.15);
@@ -560,7 +560,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #fca5a5;
+  color: var(--accent-rose);
   font-size: 0.85rem;
 }
 
@@ -572,7 +572,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #6ee7b7;
+  color: var(--signal-ink);
   font-size: 0.85rem;
 }
 
@@ -611,9 +611,9 @@
 }
 
 .preset-chip {
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  color: #c7d2fe;
+  background: var(--line-strong);
+  border: 1px solid var(--line-strong);
+  color: var(--text-2);
   font-size: 0.8rem;
   padding: 6px 12px;
   border-radius: 6px;
@@ -622,7 +622,7 @@
 }
 
 .preset-chip:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--line-strong);
   border-color: var(--accent-indigo);
 }
 
@@ -740,7 +740,7 @@
 
 .btn-count.active {
   background: var(--accent-cyan);
-  color: #000;
+  color: var(--on-signal);
   font-weight: 700;
   border-color: var(--accent-cyan);
   box-shadow: 0 0 10px rgba(184, 255, 61, 0.3);
@@ -782,7 +782,7 @@
 
 .btn-primary-large {
   background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-  color: #000;
+  color: var(--on-signal);
   border: none;
   font-weight: 700;
   font-size: 0.95rem;
@@ -862,7 +862,7 @@
 }
 
 .text-emerald { color: var(--accent-emerald); }
-.text-slate { color: #94a3b8; }
+.text-slate { color: var(--text-2); }
 .text-amber { color: var(--accent-amber); }
 
 /* Canonical Cards Grid */
@@ -905,9 +905,9 @@
 }
 
 .form-tag.pos {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--line-strong);
+  color: var(--text-2);
+  border: 1px solid var(--line-strong);
 }
 
 .notation-badge {
@@ -985,8 +985,8 @@
 }
 
 .legend-pill.slate {
-  background: rgba(148, 163, 184, 0.12);
-  color: #94a3b8;
+  background: var(--line);
+  color: var(--text-2);
 }
 
 .legend-pill.amber {
@@ -1050,18 +1050,18 @@
 
 .out-toggle-btn.out-1:hover {
   background: var(--accent-emerald);
-  color: #000;
+  color: var(--on-signal);
 }
 
 .out-toggle-btn.out-0 {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: #94a3b8;
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--text-2);
 }
 
 .out-toggle-btn.out-0:hover {
-  background: #94a3b8;
-  color: #000;
+  background: var(--text-2);
+  color: var(--on-signal);
 }
 
 .out-toggle-btn.out-x {
@@ -1072,7 +1072,7 @@
 
 .out-toggle-btn.out-x:hover {
   background: var(--accent-amber);
-  color: #000;
+  color: var(--on-signal);
 }
 
 .designation-badge {
@@ -1088,8 +1088,8 @@
 }
 
 .badge-0 {
-  background: rgba(148, 163, 184, 0.1);
-  color: #94a3b8;
+  background: var(--line);
+  color: var(--text-2);
 }
 
 .badge-x {
@@ -1137,13 +1137,13 @@
 
 .btn-toggle.active {
   background: var(--accent-cyan);
-  color: #000;
+  color: var(--on-signal);
   box-shadow: 0 0 12px rgba(184, 255, 61, 0.3);
 }
 
 /* Result Hero Banner */
 .result-hero-card {
-  background: linear-gradient(135deg, rgba(184, 255, 61, 0.08), rgba(99, 102, 241, 0.08));
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.08), var(--line-strong));
   border: 1px solid rgba(184, 255, 61, 0.25);
   border-radius: 12px;
   padding: 20px 24px;
@@ -1165,7 +1165,7 @@
   font-family: var(--font-mono);
   font-size: 1.6rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-1);
   letter-spacing: 0.5px;
 }
 
@@ -1293,7 +1293,7 @@
 }
 
 .kmap-cell.cell-hovered {
-  border-color: #fff;
+  border-color: var(--text-1);
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.5);
 }
 
@@ -1313,7 +1313,7 @@
 }
 
 .val-1 .cell-val { color: var(--accent-emerald); }
-.val-0 .cell-val { color: #64748b; }
+.val-0 .cell-val { color: var(--text-3); }
 .val-x .cell-val { color: var(--accent-amber); }
 
 .group-indicators {
@@ -1328,7 +1328,7 @@
   font-size: 0.6rem;
   font-family: var(--font-mono);
   background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  color: var(--text-1);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -1380,7 +1380,7 @@
 .group-badge {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-1);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1401,12 +1401,12 @@
 
 .wrap-tag.corner {
   background: rgba(236, 72, 153, 0.2);
-  color: #f472b6;
+  color: var(--text-2);
 }
 
 .wrap-tag.wrap {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
+  background: var(--line-strong);
+  color: var(--text-2);
 }
 
 .group-card-body {
@@ -1499,7 +1499,7 @@
   font-size: 0.65rem;
   font-weight: 700;
   background: var(--accent-emerald);
-  color: #000;
+  color: var(--on-signal);
   padding: 2px 5px;
   border-radius: 3px;
   margin-left: 8px;
@@ -1552,7 +1552,7 @@
 }
 
 .btn-variant.active {
-  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), rgba(99, 102, 241, 0.15));
+  background: linear-gradient(135deg, rgba(184, 255, 61, 0.15), var(--line-strong));
   color: var(--accent-cyan);
   border: 1px solid rgba(184, 255, 61, 0.3);
   box-shadow: 0 0 8px rgba(184, 255, 61, 0.15);
@@ -1602,8 +1602,8 @@
 }
 
 .type-chip {
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--line-strong);
+  border-color: var(--line-strong);
 }
 
 .type-chip .stat-label {
@@ -1611,7 +1611,7 @@
 }
 
 .type-chip .stat-value {
-  color: #a5b4fc;
+  color: var(--text-2);
 }
 
 .variant-chip {
@@ -1673,12 +1673,12 @@
 }
 
 .input-switch.on .switch-name {
-  color: #a7f3d0;
+  color: var(--signal-ink);
 }
 
 .input-switch.on .switch-val {
   background: var(--accent-emerald);
-  color: #000;
+  color: var(--on-signal);
   font-weight: 800;
   border-radius: 3px;
   padding: 1px 6px;
@@ -1686,7 +1686,7 @@
 
 .input-switch.off {
   border-color: rgba(100, 116, 139, 0.3);
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--surface);
 }
 
 .input-switch.off .switch-name {
@@ -1790,13 +1790,13 @@
 }
 
 .btn-sim {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #c084fc;
+  background: linear-gradient(135deg, var(--line-strong), var(--line-strong));
+  border-color: var(--line-strong);
+  color: var(--text-2);
 }
 
 .btn-sim:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+  background: linear-gradient(135deg, var(--line-strong), var(--line-strong));
 }
 
 .verify-badge {
@@ -1815,7 +1815,7 @@
 .verify-badge.fail {
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  color: var(--accent-rose);
 }
 
 /* MSI Blocks Tab */
@@ -1926,7 +1926,7 @@
 .state-digit.high {
   background: rgba(16, 185, 129, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34d399;
+  color: var(--signal-ink);
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
 }
 
@@ -2100,7 +2100,7 @@
 
 .p6-error {
   padding: 10px 12px;
-  color: #fecaca;
+  color: var(--accent-rose);
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 8px;
@@ -2192,8 +2192,8 @@
 
 .ic-gate-group.unused {
   color: var(--text-muted);
-  background: rgba(148, 163, 184, 0.08);
-  border-color: rgba(148, 163, 184, 0.18);
+  background: var(--line);
+  border-color: var(--line);
 }
 
 .p6-notes,
@@ -2332,7 +2332,7 @@
 }
 
 .fault-output.mismatch {
-  color: #fecaca;
+  color: var(--accent-rose);
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.35);
 }
@@ -2346,7 +2346,7 @@
 .fault-matrix thead th {
   position: sticky;
   top: 0;
-  background: var(--bg-card, #0f172a);
+  background: var(--bg-card, var(--surface));
   z-index: 5;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
 }
@@ -2362,18 +2362,18 @@
 
 .fault-matrix tbody tr.is-selected td {
   background: rgba(184, 255, 61, 0.20) !important;
-  color: #fff;
-  border-top: 1px solid var(--accent-lime, #a3e635);
-  border-bottom: 1px solid var(--accent-lime, #a3e635);
+  color: var(--text-1);
+  border-top: 1px solid var(--accent-lime, var(--signal-ink));
+  border-bottom: 1px solid var(--accent-lime, var(--signal-ink));
 }
 
 .fault-matrix tbody tr.is-selected td:first-child {
-  border-left: 3px solid var(--accent-lime, #a3e635);
+  border-left: 3px solid var(--accent-lime, var(--signal-ink));
 }
 
 .fault-active-dot {
   display: inline-block;
-  color: var(--accent-lime, #a3e635);
+  color: var(--accent-lime, var(--signal-ink));
   margin-right: 6px;
   font-size: 10px;
   vertical-align: middle;
@@ -2387,16 +2387,16 @@
 .fault-type-cell {
   font-weight: 600;
   font-family: var(--font-mono);
-  color: var(--accent-cyan, #38bdf8);
+  color: var(--accent-cyan, var(--logic-x));
 }
 
 .fault-matrix td.cell-detected {
-  color: var(--accent-emerald, #34d399);
+  color: var(--accent-emerald, var(--signal-ink));
   font-weight: 700;
 }
 
 .fault-matrix td.cell-miss {
-  color: rgba(148, 163, 184, 0.35);
+  color: var(--line);
 }
 
 .fault-detected {
@@ -2425,7 +2425,7 @@
 
 .timing-axis,
 .timing-grid-line {
-  stroke: rgba(148, 163, 184, 0.24);
+  stroke: var(--line);
   stroke-width: 1;
 }
 
@@ -2438,12 +2438,12 @@
 .timing-signal-name,
 .timing-group-label,
 .timing-state-label {
-  fill: #94a3b8;
+  fill: var(--text-2);
   font-size: 11px;
 }
 
 .timing-signal-name {
-  fill: #e2e8f0;
+  fill: var(--text-1);
   font-size: 12px;
 }
 
@@ -2453,13 +2453,13 @@
 }
 
 .timing-state-label {
-  fill: #fbbf24;
+  fill: var(--warn);
   font-size: 10px;
 }
 
 .timing-row-background {
   fill: transparent;
-  stroke: rgba(148, 163, 184, 0.08);
+  stroke: var(--line);
   stroke-width: 1;
 }
 
@@ -2472,19 +2472,19 @@
 
 .timing-signal-path.clock,
 .timing-signal-path.state {
-  stroke: #a78bfa;
+  stroke: var(--text-2);
 }
 
 .timing-signal-path.input {
-  stroke: #34d399;
+  stroke: var(--signal-ink);
 }
 
 .timing-signal-path.output {
-  stroke: #fbbf24;
+  stroke: var(--warn);
 }
 
 .timing-signal-path.internal {
-  stroke: #94a3b8;
+  stroke: var(--text-2);
 }
 
 .timing-edge-marker {
@@ -2492,16 +2492,16 @@
 }
 
 .timing-glitch-marker {
-  stroke: #fb7185;
+  stroke: var(--accent-rose);
   stroke-width: 2;
 }
 
 .timing-violation-marker {
-  fill: #f97316;
+  fill: var(--warn);
 }
 
 .timing-cursor {
-  stroke: #f8fafc;
+  stroke: var(--text-1);
   stroke-dasharray: 4 3;
   stroke-width: 1;
   pointer-events: none;
@@ -2531,7 +2531,7 @@
 .timing-sequence-list span {
   padding: 5px 8px;
   color: var(--text-secondary);
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--line);
   border-radius: 5px;
   font: 0.78rem var(--font-mono);
 }
@@ -2555,7 +2555,7 @@
   gap: 5px;
   margin-top: 10px;
   padding: 10px;
-  color: #fecaca;
+  color: var(--accent-rose);
   background: rgba(244, 63, 94, 0.08);
   border: 1px solid rgba(244, 63, 94, 0.25);
   border-radius: 6px;

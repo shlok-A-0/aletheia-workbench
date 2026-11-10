@@ -136,6 +136,13 @@
 }
 
 @media (max-width: 720px) {
+  /* fade the right edge so a cut-off link reads as "scrolls", not "broken" */
+  .shell-nav {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+    padding-right: 24px;
+  }
+
   .shell-top {
     gap: var(--space-3);
   }

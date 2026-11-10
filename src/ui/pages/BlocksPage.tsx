@@ -13,6 +13,7 @@ import {
 } from '../../engine/circuit/blocks';
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 import type { Netlist, TruthTable } from '../../engine/types';
+import { Link } from 'react-router-dom';
 import { PageHead } from '../deep/PageHead';
 import { MsiBlockDiagram } from '../blocks/MsiBlockDiagram';
 
@@ -45,16 +46,21 @@ const GALLERY_GROUPS = ['Select', 'Decode'] as const;
 const PRESET_FUNCTIONS: { label: string; vars: string[]; minterms: number[] }[] = [
   { label: 'Σm(1,3,6,7)', vars: ['A', 'B', 'C'], minterms: [1, 3, 6, 7] },
   { label: 'Majority (AB+BC+AC)', vars: ['A', 'B', 'C'], minterms: [3, 5, 6, 7] },
-  { label: 'Odd Parity (A⊕B⊕C)', vars: ['A', 'B', 'C'], minterms: [1, 2, 4, 7] },
-  { label: '2-var XOR (A⊕B)', vars: ['A', 'B'], minterms: [1, 2] },
+  { label: 'Odd parity (A ^ B ^ C)', vars: ['A', 'B', 'C'], minterms: [1, 2, 4, 7] },
+  { label: '2-var XOR (A ^ B)', vars: ['A', 'B'], minterms: [1, 2] },
 ];
 
 const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]);
 
+const NO_OUTPUTS: string[] = [];
+
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
+  // Select the stable array itself: a fresh `?? []` each render would loop the store subscription.
+  const workbenchOutputs = useStore((state) => state.netlists.simplified?.outputs) ?? NO_OUTPUTS;
   const [pageMode, setPageMode] = useState<'implement' | 'gallery'>('implement');
   const [presetTT, setPresetTT] = useState<TruthTable | null>(null);
+  const [presetLabel, setPresetLabel] = useState('');
 
   // Implementation settings
   const [implTarget, setImplTarget] = useState<'mux' | 'decoder'>('mux');
@@ -200,141 +206,104 @@ export function BlocksPage() {
         sub="Implement any Boolean expression using Multiplexers and Decoders, or inspect standard MSI parts."
       />
 
-      {/* Top mode switcher */}
-      <div className="dp-chips" style={{ marginBottom: 'var(--space-6)' }}>
-        <button
-          type="button"
-          className={`dp-chip ${pageMode === 'implement' ? 'is-on' : ''}`}
-          onClick={() => {
-            setPageMode('implement');
-            setBits({});
-          }}
-        >
-          Implement Expression (MUX / Decoder)
-        </button>
-        <button
-          type="button"
-          className={`dp-chip ${pageMode === 'gallery' ? 'is-on' : ''}`}
-          onClick={() => {
-            setPageMode('gallery');
-            setBits({});
-          }}
-        >
-          Standard MSI Library
-        </button>
+      <div className="wb-seg dp-mode" role="group" aria-label="Blocks mode">
+        {([['implement', 'Implement a function'], ['gallery', 'Parts library']] as const).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            aria-pressed={pageMode === m}
+            className={pageMode === m ? 'is-on' : undefined}
+            onClick={() => {
+              setPageMode(m);
+              setBits({});
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {pageMode === 'implement' ? (
-        <section className="dp-panel" style={{ marginBottom: 'var(--space-6)' }}>
+        <section className="dp-panel dp-panel--spaced">
           <div className="dp-panel-head">
             <div>
               <h2 className="dp-h2">Function Realization using MSI Blocks</h2>
               <p className="dp-muted">
                 {isSample
-                  ? 'Showing sample function F(A, B, C) = Σm(1, 3, 6, 7). Enter an expression on the Workbench to map your own function.'
+                  ? <>Showing the sample F(A, B, C) = Σm(1, 3, 6, 7). <Link to="/">Type your own function in the workbench</Link> to map it here.</>
                   : `Active Function: F(${activeTT.vars.join(', ')}) with ${activeTT.rows.filter((r) => r.out === 1).length} active minterms.`}
               </p>
             </div>
           </div>
 
-          {/* Implementation target selector */}
-          <div className="dp-groups" style={{ marginBottom: 0 }}>
-            <div className="dp-group">
-              <span className="t-label">Presets</span>
-              <div className="dp-chips">
+          {!presetTT && workbenchOutputs.length > 1 && (
+            <p className="dp-note" role="note">
+              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}). This page realizes the first one, {workbenchOutputs[0]}, as a single-output function.
+            </p>
+          )}
+
+          <div className="dp-toolbar">
+            <label className="dp-field">
+              <span className="t-label">Function</span>
+              <select
+                value={presetTT ? presetLabel : ''}
+                onChange={(e) => {
+                  const p = PRESET_FUNCTIONS.find((x) => x.label === e.target.value);
+                  setPresetTT(p ? truthTableFromMinterms(p.vars, p.minterms) : null);
+                  setPresetLabel(p?.label ?? '');
+                  setSelectedMuxConfigIdx(0);
+                  setBits({});
+                }}
+              >
+                <option value="">From the workbench</option>
                 {PRESET_FUNCTIONS.map((p) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    className="dp-chip"
-                    onClick={() => {
-                      setPresetTT(truthTableFromMinterms(p.vars, p.minterms));
-                      setSelectedMuxConfigIdx(0);
-                      setBits({});
-                    }}
-                  >
-                    {p.label}
-                  </button>
+                  <option key={p.label} value={p.label}>{p.label}</option>
                 ))}
-                {presetTT && (
-                  <button
-                    type="button"
-                    className="dp-chip is-on"
-                    onClick={() => {
-                      setPresetTT(null);
-                      setSelectedMuxConfigIdx(0);
-                      setBits({});
-                    }}
-                    title="Clear preset and restore the expression from the Workbench"
-                  >
-                    Reset to Workbench Expression ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="dp-group">
-              <span className="t-label">MSI Block</span>
-              <div className="dp-chips">
-                <button
-                  type="button"
-                  className={`dp-chip ${implTarget === 'mux' ? 'is-on' : ''}`}
-                  onClick={() => {
-                    setImplTarget('mux');
-                    setBits({});
-                  }}
-                >
-                  Multiplexer (MUX)
-                </button>
-                <button
-                  type="button"
-                  className={`dp-chip ${implTarget === 'decoder' ? 'is-on' : ''}`}
-                  onClick={() => {
-                    setImplTarget('decoder');
-                    setBits({});
-                  }}
-                >
-                  Decoder + OR Gate
-                </button>
-              </div>
-            </div>
-
+              </select>
+            </label>
+            <label className="dp-field">
+              <span className="t-label">Block</span>
+              <select
+                value={implTarget}
+                onChange={(e) => {
+                  setImplTarget(e.target.value as 'mux' | 'decoder');
+                  setBits({});
+                }}
+              >
+                <option value="mux">Multiplexer</option>
+                <option value="decoder">Decoder + OR</option>
+              </select>
+            </label>
             {implTarget === 'mux' && (
-              <div className="dp-group">
-                <span className="t-label">MUX Size</span>
-                <div className="dp-chips">
+              <label className="dp-field">
+                <span className="t-label">MUX size</span>
+                <select
+                  value={safeMuxIdx}
+                  onChange={(e) => {
+                    setSelectedMuxConfigIdx(Number(e.target.value));
+                    setBits({});
+                  }}
+                >
                   {muxConfigs.map((cfg, idx) => (
-                    <button
-                      key={cfg.label}
-                      type="button"
-                      className={`dp-chip ${safeMuxIdx === idx ? 'is-on' : ''}`}
-                      onClick={() => {
-                        setSelectedMuxConfigIdx(idx);
-                        setBits({});
-                      }}
-                    >
-                      {cfg.label}
-                    </button>
+                    <option key={cfg.label} value={idx}>{cfg.label}</option>
                   ))}
-                </div>
-              </div>
+                </select>
+              </label>
             )}
           </div>
 
           {/* Derivation Steps Summary */}
           {steps.length > 0 && (
-            <div className="card" style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--inset)' }}>
-              <span className="t-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
-                Derivation Steps ({implTarget === 'mux' ? 'Shannon Expansion' : 'Minterm Mapping'})
-              </span>
-              <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+            <details className="dp-derivation">
+              <summary className="t-label">
+                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : 'minterm mapping'}
+              </summary>
+              <ol>
                 {steps.map((st, i) => (
-                  <div key={i} style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-2)' }}>
-                    <b style={{ color: 'var(--text-1)' }}>{st.title}:</b> {st.detail}
-                  </div>
+                  <li key={i}><b>{st.title}:</b> {st.detail}</li>
                 ))}
-              </div>
-            </div>
+              </ol>
+            </details>
           )}
         </section>
       ) : (
@@ -380,7 +349,7 @@ export function BlocksPage() {
 
         <div className="dp-io">
           <div className="dp-io-col">
-            <span className="t-label">Inputs (Click to toggle)</span>
+            <span className="t-label">Inputs · click to toggle</span>
             <div className="dp-bits">
               {netlist.inputs.map((n) => (
                 <button
@@ -407,29 +376,16 @@ export function BlocksPage() {
           </div>
         </div>
 
-        {/* Diagram Representation Switcher */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--space-3) 0 var(--space-4)', flexWrap: 'wrap', gap: '8px' }}>
-          <span className="t-label">Schematic View Mode</span>
-          <div className="dp-chips" style={{ margin: 0 }}>
-            <button
-              type="button"
-              className={`dp-chip ${diagramView === 'block' ? 'is-on' : ''}`}
-              onClick={() => setDiagramView('block')}
-            >
-              Block Diagram (Textbook MSI)
+        <div className="wb-seg wb-seg--sm dp-mode" role="group" aria-label="Diagram style">
+          {([['block', 'Block diagram'], ['gate', 'Gate level']] as const).map(([m, label]) => (
+            <button key={m} type="button" aria-pressed={diagramView === m} className={diagramView === m ? 'is-on' : undefined} onClick={() => setDiagramView(m)}>
+              {label}
             </button>
-            <button
-              type="button"
-              className={`dp-chip ${diagramView === 'gate' ? 'is-on' : ''}`}
-              onClick={() => setDiagramView('gate')}
-            >
-              Gate-Level Expansion
-            </button>
-          </div>
+          ))}
         </div>
 
         {diagramView === 'block' ? (
-          <div className="card" style={{ padding: 'var(--space-4)', background: 'var(--bg-card, #0f172a)' }}>
+          <div className="dp-diagram">
             <MsiBlockDiagram
               mode={pageMode}
               implTarget={implTarget}
