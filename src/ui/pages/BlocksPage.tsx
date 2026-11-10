@@ -52,8 +52,12 @@ const PRESET_FUNCTIONS: { label: string; vars: string[]; minterms: number[] }[] 
 
 const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]);
 
+const NO_OUTPUTS: string[] = [];
+
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
+  // Select the stable array itself: a fresh `?? []` each render would loop the store subscription.
+  const workbenchOutputs = useStore((state) => state.netlists.simplified?.outputs) ?? NO_OUTPUTS;
   const [pageMode, setPageMode] = useState<'implement' | 'gallery'>('implement');
   const [presetTT, setPresetTT] = useState<TruthTable | null>(null);
   const [presetLabel, setPresetLabel] = useState('');
@@ -231,6 +235,12 @@ export function BlocksPage() {
               </p>
             </div>
           </div>
+
+          {!presetTT && workbenchOutputs.length > 1 && (
+            <p className="dp-note" role="note">
+              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}). This page realizes the first one, {workbenchOutputs[0]}, as a single-output function.
+            </p>
+          )}
 
           <div className="dp-toolbar">
             <label className="dp-field">

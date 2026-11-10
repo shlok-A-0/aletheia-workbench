@@ -422,3 +422,5 @@
 .dp-derivation b { color: var(--text-1); }
 .dp-diagram { background: var(--inset); border: 1px solid var(--line-strong); padding: var(--space-4); overflow-x: auto; }
 .dp-chip { text-transform: uppercase; font-size: var(--fs-label); letter-spacing: var(--track-label); }
+
+.dp-note { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--logic-x); color: var(--text-1); font-size: var(--fs-sm); }
