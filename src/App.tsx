@@ -41,19 +41,18 @@ function readTheme(): Theme {
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [persistenceError, setPersistenceError] = useState<string | null>(null);
-  const location = useLocation();
-
-  const currentNav = navItems.find((item) => item.path === location.pathname);
-
-  useEffect(() => {
+  const [persistenceError, setPersistenceError] = useState<string | null>(() => {
     try {
       const savedProject = loadLastProject();
       if (savedProject) useStore.setState(savedProject);
+      return null;
     } catch (error) {
-      setPersistenceError(error instanceof Error ? error.message : String(error));
+      return error instanceof Error ? error.message : String(error);
     }
-  }, []);
+  });
+  const location = useLocation();
+
+  const currentNav = navItems.find((item) => item.path === location.pathname);
 
   useEffect(() => {
     let timer = 0;

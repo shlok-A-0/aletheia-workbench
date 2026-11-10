@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { Component, memo, useCallback, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import {
   BaseEdge,
   Handle,
@@ -131,7 +131,7 @@ const TerminalNode = memo(function TerminalNode({ data }: NodeProps<Node<Termina
 
 /** Draws exactly the orthogonal route ELK computed, in lime when the net is 1. */
 const WireEdge = memo(function WireEdge({ id, data }: EdgeProps<Edge<WireData>>) {
-  if (!data) return null;
+  if (!data || !data.points || data.points.length < 2) return null;
   const cls = data.value === 1 ? 'sch-wire is-1' : data.value === 0 ? 'sch-wire is-0' : 'sch-wire';
   return <BaseEdge id={id} path={roundedPath(data.points, 6)} className={cls} interactionWidth={0} />;
 });
@@ -310,6 +310,41 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
   );
 }
 
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  message: string;
+}
+
+class SchematicErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    return { hasError: true, message: error instanceof Error ? error.message : String(error) };
+  }
+
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error('Schematic layout rendering error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="sch-empty" role="alert" style={{ color: 'var(--text-2, #a7aebb)' }}>
+          Schematic preview could not be rendered: {this.state.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /** Auto-laid-out, IEEE-symbol schematic. Click an input terminal to toggle it. */
 export function SchematicView(props: SchematicViewProps) {
   if (!isSchematicSupported(props.netlist)) {
@@ -320,9 +355,11 @@ export function SchematicView(props: SchematicViewProps) {
     );
   }
   return (
-    <ReactFlowProvider>
-      <Inner {...props} />
-    </ReactFlowProvider>
+    <SchematicErrorBoundary>
+      <ReactFlowProvider>
+        <Inner {...props} />
+      </ReactFlowProvider>
+    </SchematicErrorBoundary>
   );
 }
 

@@ -20,7 +20,17 @@ export function Workbench() {
   useEffect(() => {
     if (!hash) return;
     const id = hash.slice(1);
-    const t = window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }), 60);
+    let attempts = 0;
+    const scrollToTarget = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (attempts < 12) {
+        attempts++;
+        window.setTimeout(scrollToTarget, 50);
+      }
+    };
+    const t = window.setTimeout(scrollToTarget, 40);
     return () => window.clearTimeout(t);
   }, [hash]);
 

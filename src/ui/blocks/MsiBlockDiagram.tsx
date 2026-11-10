@@ -42,16 +42,30 @@ export function MsiBlockDiagram({
 
       // Compute current live value for this data line based on residual vars
       let currentVal: 0 | 1 = 0;
-      if (label === '1') currentVal = 1;
-      else if (label === '0') currentVal = 0;
-      else if (residualVars.length === 1) {
+      if (label === '1') {
+        currentVal = 1;
+      } else if (label === '0') {
+        currentVal = 0;
+      } else if (residualVars.length === 1) {
         const rName = residualVars[0];
         const rVal = inputs[rName] ?? 0;
         if (label === rName) currentVal = rVal;
         else if (label === `${rName}'`) currentVal = (1 - rVal) as 0 | 1;
-      } else {
-        // Multi-residual evaluation
-        currentVal = 0;
+      } else if (activeTT && residualVars.length > 1) {
+        // Multi-residual evaluation against current input vector
+        const targetRow = activeTT.rows.find((row) => {
+          for (let sIdx = 0; sIdx < k; sIdx++) {
+            const bitVal = (d >> (k - 1 - sIdx)) & 1;
+            const vCol = allVars.indexOf(selectVars[sIdx]);
+            if (row.inputs[vCol] !== bitVal) return false;
+          }
+          for (const rVar of residualVars) {
+            const vCol = allVars.indexOf(rVar);
+            if (row.inputs[vCol] !== (inputs[rVar] ?? 0)) return false;
+          }
+          return true;
+        });
+        currentVal = targetRow?.out === 1 ? 1 : 0;
       }
 
       residues.push({ index: d, label, currentVal });
@@ -163,7 +177,7 @@ export function MsiBlockDiagram({
                 >
                   I{d}
                 </text>
-                {/* Shannon Residue assignment label on left */}
+                {/* Shannon Residue assignment label on left (clickable if residual variable) */}
                 <text
                   x={70}
                   y={y + 4}
@@ -172,7 +186,12 @@ export function MsiBlockDiagram({
                   fontSize="12"
                   fontWeight="700"
                   fontFamily="monospace"
+                  style={{ cursor: residualVars.length > 0 ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    if (residualVars.length === 1) onToggleInput(residualVars[0]);
+                  }}
                 >
+                  {residualVars.length === 1 && <title>{`Click to toggle ${residualVars[0]}`}</title>}
                   {r.label}
                 </text>
                 {/* Value chip */}

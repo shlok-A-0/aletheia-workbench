@@ -337,8 +337,9 @@ export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout
 }
 
 /** SVG path through the polyline with rounded corners of radius `r`. */
-export function roundedPath(points: { x: number; y: number }[], r = 6): string {
-  if (points.length === 0) return '';
+export function roundedPath(points: { x: number; y: number }[] = [], r = 6): string {
+  if (!points || !Array.isArray(points) || points.length === 0) return '';
+  if (points.length === 1) return `M${points[0].x},${points[0].y}`;
   let d = `M${points[0].x},${points[0].y}`;
   for (let i = 1; i < points.length - 1; i++) {
     const prev = points[i - 1];

@@ -173,7 +173,7 @@ export const InputPage: React.FC = () => {
       setParsedExpr(parsedExpr);
       setTruthTable(generatedTT);
       setInputError(null);
-      navigate('/truth-table');
+      navigate('/#table');
     } catch (err) {
       setInputError(err instanceof Error ? err.message : String(err));
     }

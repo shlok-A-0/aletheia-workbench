@@ -347,11 +347,16 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
 
   <script>
     // Automatically trigger print dialog after page renders
-    window.addEventListener('load', function() {
+    function triggerPrint() {
       setTimeout(function() {
         try { window.print(); } catch (_) {}
-      }, 250);
-    });
+      }, 300);
+    }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      triggerPrint();
+    } else {
+      window.addEventListener('load', triggerPrint);
+    }
   </script>
 </body>
 </html>`;
