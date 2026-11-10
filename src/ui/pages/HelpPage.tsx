@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PageHead } from '../deep/PageHead';
 
 const concepts = [
   { name: 'Boolean variables and expressions', page: 'Boolean Input', path: '/input', description: 'Represent binary conditions and combine them with Boolean operators.' },
@@ -8,7 +9,7 @@ const concepts = [
   { name: 'SOP and POS', page: 'K-Map & QM', path: '/kmap', description: 'Sum-of-products ORs product terms; product-of-sums ANDs sum terms.' },
   { name: 'Don’t-care conditions', page: 'Boolean Input', path: '/input', description: 'Mark input combinations whose output may be chosen to simplify the circuit.' },
   { name: 'Combinational circuits', page: 'Circuit Schematic', path: '/circuit', description: 'Compute outputs solely from the current values of the inputs.' },
-  { name: 'MSI blocks', page: 'Circuit Schematic', path: '/circuit', description: 'Use standard functional blocks such as multiplexers, decoders, and adders.' },
+  { name: 'MSI blocks', page: 'Building Blocks', path: '/blocks', description: 'Use standard functional blocks such as multiplexers, decoders, and adders.' },
   { name: 'Sequential circuits and flip-flops', page: 'Sequential / FSM', path: '/sequential', description: 'Store state and update it on clock edges using D, JK, T, or SR flip-flops.' },
   { name: 'Finite-state machines', page: 'Sequential / FSM', path: '/sequential', description: 'Model behavior as states, input-dependent transitions, and outputs.' },
   { name: 'Moore and Mealy machines', page: 'Sequential / FSM', path: '/sequential', description: 'Moore outputs depend on state; Mealy outputs depend on state and current input.' },
@@ -23,11 +24,8 @@ const concepts = [
 
 export function HelpPage() {
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>Concept Guide</h1>
-        <p className="subtitle">A quick map from core digital-logic concepts to the workbench tools that demonstrate them.</p>
-      </div>
+    <div className="page-container dp">
+      <PageHead kicker="Learn / Concepts" title="Concept Guide" sub="A quick map from core digital-logic concepts to the workbench tools that demonstrate them." />
       <div className="concept-grid">
         {concepts.map((concept) => (
           <article className="glass-card concept-card" key={concept.name}>

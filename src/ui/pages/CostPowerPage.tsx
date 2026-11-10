@@ -19,6 +19,7 @@ import {
 import type { ComparisonRow } from '../../engine/analysis/optimize';
 import { exprToNetlist } from '../../engine/circuit/generate';
 import { useStore } from '../../store';
+import { PageHead } from '../deep/PageHead';
 
 const STORAGE_KEY = 'ldam.ic-library.v1';
 
@@ -280,11 +281,8 @@ export function CostPowerPage() {
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>IC Mapping, Cost &amp; Power</h1>
-        <p className="subtitle">Estimate a parts list and compare implementation cost, switching power, and gate count.</p>
-      </div>
+    <div className="page-container dp">
+      <PageHead kicker="03 / Cost and power" title="IC Mapping, Cost & Power" sub="Estimate a parts list and compare implementation cost, switching power, and gate count." />
 
       <div className="p6-tab-row" role="tablist" aria-label="IC cost, power, and comparison">
         <button role="tab" aria-selected={tab === 'cost'} onClick={() => setTab('cost')}>Cost &amp; Power</button>
@@ -320,7 +318,7 @@ export function CostPowerPage() {
             <div className="card-header"><h3>Parts list and package diagram</h3></div>
             {mappingResult.error && <p className="p6-error" role="alert">{mappingResult.error}</p>}
             {!currentNetlist || !report ? (
-              <p>{currentNetlist ? 'Mapping is unavailable for this netlist.' : 'Generate a circuit from an input or truth table to map it to ICs.'}</p>
+              <p>{currentNetlist ? 'Mapping is unavailable for this netlist.' : 'Define a function in the workbench first, then its parts list appears here.'}</p>
             ) : (
               <>
                 <p>Design: <strong>{currentNetlist.name}</strong></p>

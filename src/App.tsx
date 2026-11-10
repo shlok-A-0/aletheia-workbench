@@ -6,6 +6,7 @@ import { useStore } from './store';
 import { loadLastProject, saveLastProject } from './store/project';
 import './App.css';
 import './ui/shell.css';
+import './ui/deep/deep.css';
 
 interface NavItem {
   path: string;

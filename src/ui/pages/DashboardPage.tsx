@@ -5,6 +5,7 @@ import { createProjectFile, parseProjectFile } from '../../store/project';
 import { EXAMPLES, loadExample } from '../examples';
 import { gateCount, pathDepth, verify } from '../../engine/circuit/simulate';
 import type { Netlist } from '../../engine/types';
+import { PageHead } from '../deep/PageHead';
 
 function specifiedPathDelay(netlist: Netlist | null): number | null {
   if (!netlist || netlist.nodes.some((node) => node.kind === 'ff' || node.kind === 'block')) return null;
@@ -209,11 +210,8 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="page-container dashboard-page">
-      <div className="page-header">
-        <h1>Design Dashboard</h1>
-        <p className="subtitle">A compact view of the current design, with links into each analysis stage.</p>
-      </div>
+    <div className="page-container dp dashboard-page">
+      <PageHead kicker="Report / Dashboard" title="Design Dashboard" sub="A compact view of the current design, with links into each analysis stage." />
 
       <section className="glass-card dashboard-toolbar" aria-label="Project actions">
         <div>

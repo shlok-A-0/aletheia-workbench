@@ -23,6 +23,7 @@ import {
   designFSM,
   analyzeCircuit,
 } from '../../engine/sequential/fsm';
+import { PageHead } from '../deep/PageHead';
 
 type SeqTab = 'flipflops' | 'counters' | 'fsm' | 'analyze';
 
@@ -275,7 +276,7 @@ export const SequentialPage: React.FC = () => {
   /* ──────── Tab 1: Flip-Flops State ──────── */
   const [selectedFF, setSelectedFF] = useState<FFType>('JK');
   const [liveQ, setLiveQ] = useState<0 | 1>(0);
-  const [ffInputs, setFfInputs] = useState<Record<string, 0 | 1>>({ J: 0, K: 0, D: 0, T: 0, S: 0, R: 0 });
+  const [ffInputs, setFfInputs] = useState<Record<string, 0 | 1>>({ J: 1, K: 1, D: 1, T: 1, S: 1, R: 0 });
   const [asyncPreset, setAsyncPreset] = useState(false);
   const [asyncClear, setAsyncClear] = useState(false);
   const [ffWarning, setFFWarning] = useState<string | null>(null);
@@ -284,25 +285,34 @@ export const SequentialPage: React.FC = () => {
   const excitRows = useMemo(() => excitationTable(selectedFF), [selectedFF]);
   const charEq = useMemo(() => characteristicEquation(selectedFF), [selectedFF]);
 
-  const handleStepFFClock = useCallback(() => {
-    if (asyncClear) {
-      setLiveQ(0);
-      setFFWarning(null);
-      return;
-    }
-    if (asyncPreset) {
-      setLiveQ(1);
-      setFFWarning(null);
-      return;
-    }
+  const [ffHistory, setFfHistory] = useState<{ q: 0 | 1; note: string }[]>([{ q: 0, note: 'reset' }]);
+  const [ffPulse, setFfPulse] = useState(0);
+
+  /** What the next clock edge will do, shown live so the button never feels dead. */
+  const ffPreview = useMemo<{ next: 0 | 1; note: string; warn?: string }>(() => {
+    if (asyncClear) return { next: 0, note: 'async clear forces Q = 0' };
+    if (asyncPreset) return { next: 1, note: 'async preset forces Q = 1' };
     if (selectedFF === 'SR' && ffInputs.S === 1 && ffInputs.R === 1) {
-      setFFWarning('Invalid SR input S=R=1; state remains unchanged.');
-      return;
+      return { next: liveQ, note: 'invalid S = R = 1, state held', warn: 'Invalid SR input S=R=1; state remains unchanged.' };
     }
-    setFFWarning(null);
-    const nextVal = nextQ(selectedFF, liveQ, ffInputs);
-    setLiveQ(nextVal === 'x' ? 0 : nextVal);
+    const n = nextQ(selectedFF, liveQ, ffInputs);
+    const next: 0 | 1 = n === 'x' ? 0 : n;
+    return { next, note: next === liveQ ? 'hold' : next === 1 ? 'set' : 'reset' };
   }, [selectedFF, liveQ, ffInputs, asyncPreset, asyncClear]);
+
+  const handleStepFFClock = useCallback(() => {
+    setFFWarning(ffPreview.warn ?? null);
+    setLiveQ(ffPreview.next);
+    setFfPulse((n) => n + 1);
+    setFfHistory((h) => [...h.slice(-15), { q: ffPreview.next, note: ffPreview.note }]);
+  }, [ffPreview]);
+
+  const resetFF = useCallback(() => {
+    setLiveQ(0);
+    setFfPulse(0);
+    setFFWarning(null);
+    setFfHistory([{ q: 0, note: 'reset' }]);
+  }, []);
 
   const toggleFFInput = useCallback((name: string) => {
     setFfInputs((prev) => ({
@@ -438,15 +448,8 @@ export const SequentialPage: React.FC = () => {
   }, [analysisNetlistKey, designResult]);
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Sequential Logic & FSM Synthesis</h1>
-          <p className="page-subtitle">
-            Flip-flop models, clocked counters & registers, implication state reduction, and automated FSM design
-          </p>
-        </div>
-      </div>
+    <div className="page-container dp">
+      <PageHead kicker="01 / Sequential" title="Sequential Logic & FSM Synthesis" sub="Flip-flop models, clocked counters & registers, implication state reduction, and automated FSM design" />
 
       {/* Tab Navigation */}
       <div className="circuit-toolbar">
@@ -455,25 +458,25 @@ export const SequentialPage: React.FC = () => {
             className={`btn-toggle ${activeTab === 'flipflops' ? 'active' : ''}`}
             onClick={() => setActiveTab('flipflops')}
           >
-            🔄 Flip-Flops
+            Flip-Flops
           </button>
           <button
             className={`btn-toggle ${activeTab === 'counters' ? 'active' : ''}`}
             onClick={() => setActiveTab('counters')}
           >
-            ⏱ Counters & Registers
+            Counters & Registers
           </button>
           <button
             className={`btn-toggle ${activeTab === 'fsm' ? 'active' : ''}`}
             onClick={() => setActiveTab('fsm')}
           >
-            📐 FSM Designer
+            FSM Designer
           </button>
           <button
             className={`btn-toggle ${activeTab === 'analyze' ? 'active' : ''}`}
             onClick={() => setActiveTab('analyze')}
           >
-            🔍 Analyze Circuit
+            Analyze Circuit
           </button>
         </div>
       </div>
@@ -587,10 +590,20 @@ export const SequentialPage: React.FC = () => {
               </div>
               {ffWarning && <div className="verify-badge fail" role="alert">{ffWarning}</div>}
 
-              <div style={{ textAlign: 'center', marginTop: 16 }}>
-                <button className="btn-action btn-sim" onClick={handleStepFFClock}>
-                  ⚡ Pulse Clock
+              <p className="ff-preview" aria-live="polite">
+                On the next edge: Q <b>{liveQ}</b> <span aria-hidden="true">→</span> <b className={ffPreview.next === 1 ? 'is-1' : undefined}>{ffPreview.next}</b>
+                <span className="ff-note"> {ffPreview.note}</span>
+              </p>
+              <div className="ff-actions">
+                <button type="button" className="btn-primary" onClick={handleStepFFClock}>
+                  Pulse clock{ffPulse > 0 ? ` · ${ffPulse}` : ''}
                 </button>
+                <button type="button" className="btn-secondary" onClick={resetFF}>Reset</button>
+              </div>
+              <div className="ff-wave" aria-label="Q history, oldest first">
+                {ffHistory.map((h, i) => (
+                  <span key={i} className={`ff-step${h.q === 1 ? ' is-1' : ''}`} title={`edge ${i}: Q=${h.q} (${h.note})`} />
+                ))}
               </div>
             </div>
 
@@ -735,7 +748,7 @@ export const SequentialPage: React.FC = () => {
                 </div>
                 <div className="circuit-actions" style={{ marginLeft: 'auto', marginBottom: 0 }}>
                   <button className="btn-action btn-sim" onClick={handleStepCircuit}>
-                    ⚡ Step Clock
+                    Step Clock
                   </button>
                   <button className="btn-action" onClick={handleResetCircuit}>
                     ↺ Reset
@@ -828,7 +841,7 @@ export const SequentialPage: React.FC = () => {
                   className="btn-action"
                   onClick={() => handleLoadPreset(p.st)}
                 >
-                  📁 {p.name}
+                  {p.name}
                 </button>
               ))}
             </div>
@@ -854,7 +867,7 @@ export const SequentialPage: React.FC = () => {
                 <h3 className="card-title">State Transition Table ({fsmStateTable.model.toUpperCase()})</h3>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn-action btn-sim" onClick={handleReduceStates}>
-                    📉 Reduce States
+                    Reduce States
                   </button>
                 </div>
               </div>
@@ -950,7 +963,7 @@ export const SequentialPage: React.FC = () => {
               </div>
 
               <button className="btn-action btn-verify" onClick={handleDesignFSM}>
-                ⚡ Synthesize Gate-Level Netlist
+                Synthesize Gate-Level Netlist
               </button>
             </div>
           </div>
@@ -1039,7 +1052,7 @@ export const SequentialPage: React.FC = () => {
             </div>
             <div style={{ marginTop: 12 }}>
               <button className="btn-action btn-sim" onClick={handleRunAnalysis}>
-                🔍 Run Circuit Reverse Analysis
+                Run Circuit Reverse Analysis
               </button>
             </div>
           </div>

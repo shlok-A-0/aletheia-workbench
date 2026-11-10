@@ -121,7 +121,7 @@ export function ChatPanel({ open, page, pageLabel, onClose }: ChatPanelProps) {
           <p className="chat-desc">Ask about digital logic in the current design. Engine results are included as context.</p>
         </div>
         <div className="chat-placeholder-box">
-          <span className="icon">💡</span>
+          <span className="icon"></span>
           <span>Context: <em>{pageLabel}</em> · {contextLength} / 2000 chars</span>
         </div>
         <div className="chat-mode" role="group" aria-label="Assistant mode">

@@ -194,13 +194,13 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
             onClick={() => setActiveTab('kmap')}
             disabled={!canRenderKMap}
           >
-            🗺️ K-Map View {canRenderKMap ? `(${numVars} vars)` : '(2–5 vars only)'}
+            K-Map View {canRenderKMap ? `(${numVars} vars)` : '(2–5 vars only)'}
           </button>
           <button
             className={`tab-btn ${activeTab === 'qm' ? 'active' : ''}`}
             onClick={() => setActiveTab('qm')}
           >
-            📊 Quine–McCluskey Tables
+            Quine–McCluskey Tables
           </button>
         </div>
       </div>

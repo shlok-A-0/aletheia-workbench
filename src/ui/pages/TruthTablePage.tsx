@@ -112,7 +112,7 @@ export const TruthTablePage: React.FC = () => {
               onClick={() => copyToClipboard(sop.text, 'sop')}
               title="Copy Canonical SOP to clipboard"
             >
-              {copiedType === 'sop' ? '✓ Copied' : '📋 Copy SOP'}
+              {copiedType === 'sop' ? '✓ Copied' : 'Copy SOP'}
             </button>
           </div>
           <div className="notation-badge">
@@ -135,7 +135,7 @@ export const TruthTablePage: React.FC = () => {
               onClick={() => copyToClipboard(pos.text, 'pos')}
               title="Copy Canonical POS to clipboard"
             >
-              {copiedType === 'pos' ? '✓ Copied' : '📋 Copy POS'}
+              {copiedType === 'pos' ? '✓ Copied' : 'Copy POS'}
             </button>
           </div>
           <div className="notation-badge">

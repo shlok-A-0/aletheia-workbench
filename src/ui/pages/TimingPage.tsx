@@ -12,6 +12,7 @@ import {
   syncCounter,
   toCSV,
 } from '../../engine';
+import { PageHead } from '../deep/PageHead';
 
 const DEFAULTS = {
   duty: 50,
@@ -327,13 +328,8 @@ export function TimingPage() {
   })) ?? [];
 
   return (
-    <div className="page-container timing-page">
-      <div className="page-header">
-        <div>
-          <h1>Timing Diagrams &amp; Hazards</h1>
-          <p className="page-subtitle">Clock edges, propagation delay, setup and hold, and visible logic hazards.</p>
-        </div>
-      </div>
+    <div className="page-container dp timing-page">
+      <PageHead kicker="02 / Timing" title="Timing Diagrams & Hazards" sub="Clock edges, propagation delay, setup and hold, and visible logic hazards." />
 
       <section className="card timing-controls">
         <div className="timing-control-grid">

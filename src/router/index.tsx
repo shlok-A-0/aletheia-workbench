@@ -5,7 +5,7 @@ import { PageErrorBoundary } from '../ui/PageErrorBoundary';
 import { Workbench } from '../ui/workbench/Workbench';
 import {
   InputPage,
-  CircuitPage,
+  BlocksPage,
   SequentialPage,
   TimingPage,
   CostPowerPage,
@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
 
       // separate pages
       { path: 'input', element: guard(<InputPage />) },
-      { path: 'blocks', element: guard(<CircuitPage initialTab="blocks" />) },
+      { path: 'blocks', element: guard(<BlocksPage />) },
       { path: 'sequential', element: guard(<SequentialPage />) },
       { path: 'timing', element: guard(<TimingPage />) },
       { path: 'cost-power', element: guard(<CostPowerPage />) },
