@@ -44,4 +44,4 @@ pnpm build
 
 ## Sharing the source
 
-When making a source ZIP, exclude `.git`, `node_modules`, `dist`, `.aider*`, and `server/.env`. Keep `server/.env.example`. The app uses repository-relative paths and local service URLs; it does not require this computer’s directory layout.
+When making a source ZIP, exclude `.git`, `node_modules`, `dist`, and `server/.env`. Keep `server/.env.example`. The app uses repository-relative paths and local service URLs; it does not require this computer’s directory layout.

@@ -302,6 +302,18 @@ describe('Phase 3 — Circuit Engine Golden Tests', () => {
     expect(vResult.mismatches).toEqual([]);
   });
 
+  it('functionWithDecoder realization of Σm(1,3,6,7) verifies against truth table', async () => {
+    const { functionWithDecoder } = await import('./blocks');
+    const tt = truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]);
+    const { netlist, steps } = functionWithDecoder(tt);
+    expect(steps.length).toBe(2);
+    expect(netlist.outputs).toEqual(['Y']);
+
+    const vResult = verify(netlist, tt);
+    expect(vResult.ok).toBe(true);
+    expect(vResult.mismatches).toEqual([]);
+  });
+
   // Golden Test 9: Netlist with a combinational loop throws CombinationalLoopError
   it('Golden Test 9: Combinational loop detection', () => {
     // Build loop: g1: AND(A, n2) -> n1; g2: OR(n1, B) -> n2

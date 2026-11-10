@@ -1,52 +1,58 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChatPanel } from './ui/ChatPanel';
+import { IconMoon, IconSun } from './ui/workbench/icons';
 import { useStore } from './store';
 import { loadLastProject, saveLastProject } from './store/project';
 import './App.css';
+import './ui/shell.css';
+import './ui/deep/deep.css';
 
 interface NavItem {
   path: string;
   label: string;
-  icon: string;
+  /** Used by the AI assistant to describe where the user is. */
+  title: string;
+  end?: boolean;
 }
 
+/** The continuous workbench is `/`; everything else is a deep-dive page. */
 const navItems: NavItem[] = [
-  { path: '/input', label: 'Boolean Input', icon: '⌨️' },
-  { path: '/truth-table', label: 'Truth Table', icon: '📊' },
-  { path: '/kmap', label: 'K-Map & QM', icon: '🗺️' },
-  { path: '/circuit', label: 'Circuit Schematic', icon: '⚡' },
-  { path: '/sequential', label: 'Sequential / FSM', icon: '🔄' },
-  { path: '/timing', label: 'Timing & Hazards', icon: '⏱️' },
-  { path: '/cost-power', label: 'IC Cost & Power', icon: '🏷️' },
-  { path: '/faults', label: 'Fault Testing', icon: '🔍' },
-  { path: '/dashboard', label: 'Dashboard', icon: '📈' },
-  { path: '/help', label: 'Concept Guide', icon: '📚' },
+  { path: '/', label: 'Workbench', title: 'Combinational workbench', end: true },
+  { path: '/sequential', label: 'Sequential', title: 'Sequential / FSM' },
+  { path: '/timing', label: 'Timing', title: 'Timing & hazards' },
+  { path: '/cost-power', label: 'Cost', title: 'IC cost & power' },
+  { path: '/faults', label: 'Faults', title: 'Fault testing' },
+  { path: '/blocks', label: 'Blocks', title: 'Standard MSI blocks' },
+  { path: '/help', label: 'Learn', title: 'Concept guide' },
 ];
+
+type Theme = 'light' | 'dark';
+
+function readTheme(): Theme {
+  try {
+    // Dark is the default; only an explicit saved choice of light overrides it.
+    return window.localStorage.getItem('ldam:theme') === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
 
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
-    try {
-      const saved = window.localStorage.getItem('ldam:theme');
-      return saved === 'light' || saved === 'dark' ? saved : 'system';
-    } catch {
-      return 'system';
-    }
-  });
-  const [persistenceError, setPersistenceError] = useState<string | null>(null);
-  const location = useLocation();
-
-  const currentNav = navItems.find((item) => item.path === location.pathname);
-
-  useEffect(() => {
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [persistenceError, setPersistenceError] = useState<string | null>(() => {
     try {
       const savedProject = loadLastProject();
       if (savedProject) useStore.setState(savedProject);
+      return null;
     } catch (error) {
-      setPersistenceError(error instanceof Error ? error.message : String(error));
+      return error instanceof Error ? error.message : String(error);
     }
-  }, []);
+  });
+  const location = useLocation();
+
+  const currentNav = navItems.find((item) => item.path === location.pathname);
 
   useEffect(() => {
     let timer = 0;
@@ -68,96 +74,67 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: light)');
-    const applyTheme = () => {
-      document.documentElement.dataset.theme = theme === 'system'
-        ? (media.matches ? 'light' : 'dark')
-        : theme;
-    };
-    applyTheme();
-    media.addEventListener('change', applyTheme);
-    return () => media.removeEventListener('change', applyTheme);
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const cycleTheme = () => {
-    const next = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     try {
-      if (next === 'system') window.localStorage.removeItem('ldam:theme');
-      else window.localStorage.setItem('ldam:theme', next);
+      window.localStorage.setItem('ldam:theme', next);
     } catch (error) {
       setPersistenceError(error instanceof Error ? error.message : String(error));
     }
   };
 
   return (
-    <div className="app-layout">
-      {/* Top Header */}
-      <header className="app-header">
-        <div className="header-brand">
-          <div className="logo-badge" aria-hidden="true">A</div>
-          <div className="brand-text">
-            <h2>Aletheia</h2>
-            <span>Logic Design &amp; Microprocessor Workbench</span>
-          </div>
-        </div>
+    <div className="shell">
+      <header className="shell-top">
+        <NavLink to="/" end className="shell-brand" aria-label="Aletheia workbench home">
+          ALETHEIA <i>[DOT]</i> LOGIC
+        </NavLink>
 
-        <div className="header-actions">
-          <div className="engine-badge">
-            <span className="dot online"></span>
-            Pure TS Engine: Active
-          </div>
+        <nav className="shell-nav" aria-label="Pages">
+          {navItems.map((item) => (
+            <NavLink key={item.path} to={item.path} end={item.end} className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="shell-actions">
           <button
-            className="theme-toggle"
-            onClick={cycleTheme}
-            aria-label={`Theme: ${theme}. Change theme`}
+            type="button"
+            className="shell-icon-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
             title={`Theme: ${theme}`}
           >
-            {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '🌓'} Theme
+            {theme === 'dark' ? <IconSun /> : <IconMoon />}
           </button>
           <button
-            className={`btn-chat-toggle ${chatOpen ? 'active' : ''}`}
+            type="button"
+            className={`shell-ai ${chatOpen ? 'is-open' : ''}`}
             onClick={() => setChatOpen(!chatOpen)}
-            title="Toggle AI Study Assistant"
             aria-expanded={chatOpen}
+            title="Toggle AI study assistant"
           >
-            🤖 AI Assistant
+            AI
           </button>
         </div>
       </header>
 
-      {/* Main Body */}
-      <div className="app-body">
-        {/* Left Navigation */}
-        <aside className="app-sidebar">
-          <div className="sidebar-section-title">Analysis Pipeline</div>
-          <nav className="nav-menu">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
+      <main className="shell-main">
+        <Outlet />
+      </main>
 
-        {/* Center Workspace */}
-        <main className="app-workspace">
-          <Outlet />
-        </main>
+      <ChatPanel
+        open={chatOpen}
+        page={location.pathname}
+        pageLabel={currentNav?.title ?? 'workspace'}
+        onClose={() => setChatOpen(false)}
+      />
 
-        {/* Collapsible Right Chat Panel */}
-        <ChatPanel
-          open={chatOpen}
-          page={location.pathname}
-          pageLabel={currentNav?.label ?? 'workspace'}
-          onClose={() => setChatOpen(false)}
-        />
-      </div>
       {persistenceError && (
         <div className="persistence-alert" role="alert">
           Automatic session save failed: {persistenceError}

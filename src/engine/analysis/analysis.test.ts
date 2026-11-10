@@ -39,7 +39,7 @@ const andCircuit: Netlist = {
 describe('Phase 6 IC mapping, power, comparison, and fault analysis', () => {
   it('packs NAND gates and inverters into their matching packages', () => {
     expect(mapToICs(nandNetlist(5)).ics).toEqual([
-      { part: '7400', count: 2, unusedGates: 3, unitPrice: null, subtotal: null },
+      { part: '7400', count: 2, unusedGates: 3, unitPrice: 0.45, subtotal: 0.9 },
     ]);
     expect(mapToICs(nandNetlist(4)).ics[0]).toMatchObject({ part: '7400', count: 1, unusedGates: 0 });
 
@@ -94,6 +94,10 @@ describe('Phase 6 IC mapping, power, comparison, and fault analysis', () => {
       ...ic,
       unitPrice: ic.part === '7400' ? 10 : ic.part === '7404' ? 12 : ic.unitPrice,
     }));
+    const unpricedLibrary: ICLibrary = DEFAULT_IC_LIBRARY.map((ic) => ({
+      ...ic,
+      unitPrice: null,
+    }));
     const pricedNetlist: Netlist = {
       ...netlist,
       outputs: ['Y0', 'Y1', 'Y2', 'Y3', 'Y4', 'Y'],
@@ -101,7 +105,7 @@ describe('Phase 6 IC mapping, power, comparison, and fault analysis', () => {
     const report = mapToICs(pricedNetlist, pricedLibrary);
     expect(report.totalPins).toBe(42);
     expect(report.totalCost).toBe(32);
-    expect(mapToICs(pricedNetlist).totalCost).toBeUndefined();
+    expect(mapToICs(pricedNetlist, unpricedLibrary).totalCost).toBeUndefined();
   });
 
   it('uses the documented transistor estimates and dynamic power equation', () => {

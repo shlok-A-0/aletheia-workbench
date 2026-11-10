@@ -60,6 +60,13 @@ describe('FaultsPage', () => {
     fireEvent.change(screen.getByLabelText('Input B'), { target: { value: '1' } });
     expect(screen.getByText('Mismatch')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Greedy minimal test set' })).toBeInTheDocument();
+
+    // Verify row selection and clicking in fault matrix table
+    const sa1Rows = screen.getAllByText('SA1');
+    expect(sa1Rows.length).toBeGreaterThan(0);
+    fireEvent.click(sa1Rows[0]);
+    // The active selection dot ▶ should be displayed for selected row
+    expect(screen.getByText('▶')).toBeInTheDocument();
   });
 
   it('runs fault analysis for more than five inputs in the engine worker', async () => {

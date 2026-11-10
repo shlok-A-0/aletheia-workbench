@@ -1,7 +1,6 @@
 export { InputPage } from './InputPage';
 export { TruthTablePage } from './TruthTablePage';
-export { KMapPage } from './KMapPage';
-export { CircuitPage } from './CircuitPage';
+export { BlocksPage } from './BlocksPage';
 export { SequentialPage } from './SequentialPage';
 export { TimingPage } from './TimingPage';
 export { CostPowerPage } from './CostPowerPage';

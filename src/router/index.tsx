@@ -1,11 +1,11 @@
+import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
 import { PageErrorBoundary } from '../ui/PageErrorBoundary';
+import { Workbench } from '../ui/workbench/Workbench';
 import {
   InputPage,
-  TruthTablePage,
-  KMapPage,
-  CircuitPage,
+  BlocksPage,
   SequentialPage,
   TimingPage,
   CostPowerPage,
@@ -15,23 +15,38 @@ import {
   HelpPage,
 } from '../ui/pages';
 
+const guard = (node: ReactNode) => <PageErrorBoundary>{node}</PageErrorBoundary>;
+
+/**
+ * `/` is the continuous workbench (define → table → simplify → circuit → verify).
+ * The old step pages now redirect into it so existing links keep working.
+ * Deep-dive tools that deserve their own screen stay as separate pages.
+ */
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <Navigate to="/input" replace /> },
-      { path: 'input', element: <PageErrorBoundary><InputPage /></PageErrorBoundary> },
-      { path: 'truth-table', element: <PageErrorBoundary><TruthTablePage /></PageErrorBoundary> },
-      { path: 'kmap', element: <PageErrorBoundary><KMapPage /></PageErrorBoundary> },
-      { path: 'circuit', element: <PageErrorBoundary><CircuitPage /></PageErrorBoundary> },
-      { path: 'sequential', element: <PageErrorBoundary><SequentialPage /></PageErrorBoundary> },
-      { path: 'timing', element: <PageErrorBoundary><TimingPage /></PageErrorBoundary> },
-      { path: 'cost-power', element: <PageErrorBoundary><CostPowerPage /></PageErrorBoundary> },
-      { path: 'faults', element: <PageErrorBoundary><FaultsPage /></PageErrorBoundary> },
-      { path: 'dashboard', element: <PageErrorBoundary><DashboardPage /></PageErrorBoundary> },
-      { path: 'selftest', element: <PageErrorBoundary><SelfTestPage /></PageErrorBoundary> },
-      { path: 'help', element: <PageErrorBoundary><HelpPage /></PageErrorBoundary> },
+      { index: true, element: guard(<Workbench />) },
+
+      // old wizard steps and in-page sections → scroll anchors of the workbench
+      { path: 'truth-table', element: <Navigate to="/#table" replace /> },
+      { path: 'table', element: <Navigate to="/#table" replace /> },
+      { path: 'kmap', element: <Navigate to="/#simplify" replace /> },
+      { path: 'simplify', element: <Navigate to="/#simplify" replace /> },
+      { path: 'circuit', element: <Navigate to="/#circuit" replace /> },
+      { path: 'verify', element: <Navigate to="/#verify" replace /> },
+
+      // separate pages
+      { path: 'input', element: guard(<InputPage />) },
+      { path: 'blocks', element: guard(<BlocksPage />) },
+      { path: 'sequential', element: guard(<SequentialPage />) },
+      { path: 'timing', element: guard(<TimingPage />) },
+      { path: 'cost-power', element: guard(<CostPowerPage />) },
+      { path: 'faults', element: guard(<FaultsPage />) },
+      { path: 'dashboard', element: guard(<DashboardPage />) },
+      { path: 'selftest', element: guard(<SelfTestPage />) },
+      { path: 'help', element: guard(<HelpPage />) },
     ],
   },
 ]);

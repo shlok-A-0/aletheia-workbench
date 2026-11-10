@@ -163,7 +163,7 @@ function configureCombinational(netlist: Netlist): Partial<RootStore> {
 
 export function loadExample(id: string): string {
   let state: Partial<RootStore>;
-  let route = '/input';
+  let route = '/';
   switch (id) {
     case 'odd-minterms':
       state = clearedState(
@@ -179,18 +179,18 @@ export function loadExample(id: string): string {
     }
     case 'full-adder':
       state = configureCombinational(fullAdder());
-      route = '/circuit';
+      route = '/#circuit';
       break;
     case 'mux':
       state = configureCombinational(mux(2));
-      route = '/circuit';
+      route = '/#circuit';
       break;
     case 'bcd': {
       const decoder = bcdTo7Seg();
       const segment = decoder.outputs[0];
       if (!segment) throw new Error('BCD decoder did not provide a segment output.');
       state = configureCombinational(selectOutputCone(decoder, segment));
-      route = '/circuit';
+      route = '/#circuit';
       break;
     }
     case 'jk-counter': {

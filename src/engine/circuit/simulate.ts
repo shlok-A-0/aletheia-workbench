@@ -4,7 +4,7 @@
  * truth table extraction, and equivalence verification against golden TruthTables.
  */
 
-import type { Netlist, NetId, TruthTable, Gate, Const } from '../types';
+import type { Netlist, NetId, TruthTable, Gate, Const, FlipFlop } from '../types';
 import { CombinationalLoopError } from './generate';
 
 export function gateValue(type: Gate['type'], inVals: (0 | 1)[]): 0 | 1 {
@@ -35,6 +35,13 @@ export function evaluate(
     if (node.kind === 'const') {
       const c = node as Const;
       values[c.output] = c.value;
+    } else if (node.kind === 'ff') {
+      const f = node as FlipFlop;
+      const qVal = inputs[f.q] ?? 0;
+      values[f.q] = qVal;
+      if (f.qn) {
+        values[f.qn] = inputs[f.qn] ?? ((1 - qVal) as 0 | 1);
+      }
     }
   }
 
@@ -160,5 +167,32 @@ export function pathDepth(netlist: Netlist | null): number | null {
     });
   }
   return Math.max(0, ...netlist.outputs.map((net) => depthByNet.get(net) ?? 0));
+}
+
+/**
+ * Computes maximum critical path delay across gates with defined transport delays.
+ */
+export function specifiedPathDelay(netlist: Netlist | null): number | null {
+  if (!netlist || netlist.nodes.some((node) => node.kind === 'ff' || node.kind === 'block')) return null;
+  const delayByNet = new Map(netlist.inputs.map((net) => [net, 0]));
+  const unknownNets = new Set<string>();
+  let remaining = netlist.nodes.filter((node) => node.kind === 'gate');
+  let progressed = true;
+  while (remaining.length > 0 && progressed) {
+    progressed = false;
+    remaining = remaining.filter((gate) => {
+      if (!gate.inputs.every((net) => delayByNet.has(net))) return true;
+      progressed = true;
+      if (gate.delay === undefined || gate.inputs.some((net) => unknownNets.has(net))) {
+        unknownNets.add(gate.output);
+        delayByNet.set(gate.output, 0);
+      } else {
+        delayByNet.set(gate.output, Math.max(0, ...gate.inputs.map((net) => delayByNet.get(net) ?? 0)) + gate.delay);
+      }
+      return false;
+    });
+  }
+  if (remaining.length > 0 || netlist.outputs.some((net) => unknownNets.has(net) || !delayByNet.has(net))) return null;
+  return Math.max(0, ...netlist.outputs.map((net) => delayByNet.get(net) ?? 0));
 }
 

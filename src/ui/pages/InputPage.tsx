@@ -13,6 +13,7 @@ import {
   ParseError,
 } from '../../engine/boolean';
 import type { Expr, Step, TruthTable } from '../../engine/types';
+import { PageHead } from '../deep/PageHead';
 
 export const InputPage: React.FC = () => {
   const navigate = useNavigate();
@@ -172,7 +173,7 @@ export const InputPage: React.FC = () => {
       setParsedExpr(parsedExpr);
       setTruthTable(generatedTT);
       setInputError(null);
-      navigate('/truth-table');
+      navigate('/#table');
     } catch (err) {
       setInputError(err instanceof Error ? err.message : String(err));
     }
@@ -193,14 +194,8 @@ export const InputPage: React.FC = () => {
   };
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>Boolean Function & Input Specification</h1>
-        <p className="subtitle">
-          Specify your logic function through algebraic formulas, standard minterm/maxterm
-          indices, or direct truth table output editing.
-        </p>
-      </div>
+    <div className="page-container dp">
+      <PageHead kicker="Input / Advanced" title="Boolean Function & Input Specification" sub="Specify your logic function through algebraic formulas, standard minterm/maxterm indices, or direct truth table output editing." />
 
       {/* Tabs */}
       <div className="input-tabs">
@@ -208,7 +203,7 @@ export const InputPage: React.FC = () => {
           className={`tab-btn ${activeTab === 'expr' ? 'active' : ''}`}
           onClick={() => setActiveTab('expr')}
         >
-          📝 Boolean Expression
+          Boolean Expression
         </button>
         <button
           className={`tab-btn ${activeTab === 'minterms' ? 'active' : ''}`}
@@ -226,7 +221,7 @@ export const InputPage: React.FC = () => {
           className={`tab-btn ${activeTab === 'table' ? 'active' : ''}`}
           onClick={() => setActiveTab('table')}
         >
-          📊 Direct Table
+          Direct Table
         </button>
       </div>
 
@@ -251,7 +246,7 @@ export const InputPage: React.FC = () => {
 
           {validation.error ? (
             <div className="error-banner">
-              <span className="error-icon">⚠️</span>
+              <span className="error-icon"></span>
               <span>{validation.error}</span>
             </div>
           ) : (
@@ -299,7 +294,7 @@ export const InputPage: React.FC = () => {
               onClick={handleSimp}
               disabled={Boolean(validation.error) || !exprText.trim()}
             >
-              ⚡ Run Algebraic Theorem Simplification
+              Run Algebraic Theorem Simplification
             </button>
 
             {simpResultText && simpSteps && (
@@ -490,7 +485,7 @@ export const InputPage: React.FC = () => {
           onClick={handleGenerateAndProceed}
           disabled={(activeTab === 'expr' && Boolean(validation.error)) || numVars > 8}
         >
-          🚀 Analyze & Generate Truth Table →
+          Open in workbench →
         </button>
       </div>
     </div>

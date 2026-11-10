@@ -67,4 +67,4 @@ The Dashboard downloads and loads versioned project JSON. It also keeps a deboun
 
 There are no machine-specific absolute paths in the application. Build and development paths are resolved relative to the repository; the Vite proxy and optional API server use local loopback addresses and configurable ports. To run on another computer, copy the repository, install Node.js and pnpm, run `pnpm install`, then start the frontend with `pnpm dev`. Start `pnpm server:dev` as well only when using the AI assistant.
 
-For a source ZIP, omit `.git`, `node_modules`, `dist`, `.aider*`, and any real `server/.env`. Keep `server/.env.example` as the configuration template.
+For a source ZIP, omit `.git`, `node_modules`, `dist`, and any real `server/.env`. Keep `server/.env.example` as the configuration template.

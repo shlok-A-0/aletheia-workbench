@@ -12,6 +12,7 @@ import {
   syncCounter,
   toCSV,
 } from '../../engine';
+import { PageHead } from '../deep/PageHead';
 
 const DEFAULTS = {
   duty: 50,
@@ -140,6 +141,7 @@ export function TimingPage() {
   const [exportingPng, setExportingPng] = useState(false);
   const [waveform, setLocalWaveform] = useState<Waveform | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef(0);
   const setWaveform = (value: Waveform | null) => {
     setLocalWaveform(value);
@@ -191,6 +193,15 @@ export function TimingPage() {
 
   useEffect(() => {
     playheadRef.current = playhead;
+    if (viewportRef.current) {
+      const vp = viewportRef.current;
+      const cursorX = 100 + playhead * 12;
+      const minVisible = vp.scrollLeft + 80;
+      const maxVisible = vp.scrollLeft + vp.clientWidth - 80;
+      if (cursorX < minVisible || cursorX > maxVisible) {
+        vp.scrollLeft = Math.max(0, cursorX - vp.clientWidth / 2);
+      }
+    }
   }, [playhead]);
 
   const runSimulation = () => {
@@ -327,13 +338,8 @@ export function TimingPage() {
   })) ?? [];
 
   return (
-    <div className="page-container timing-page">
-      <div className="page-header">
-        <div>
-          <h1>Timing Diagrams &amp; Hazards</h1>
-          <p className="page-subtitle">Clock edges, propagation delay, setup and hold, and visible logic hazards.</p>
-        </div>
-      </div>
+    <div className="page-container dp timing-page">
+      <PageHead kicker="02 / Timing" title="Timing Diagrams & Hazards" sub="Clock edges, propagation delay, setup and hold, and visible logic hazards." />
 
       <section className="card timing-controls">
         <div className="timing-control-grid">
@@ -442,7 +448,7 @@ export function TimingPage() {
           <div className="timing-empty-state">Run the simulation to inspect the digital waveforms.</div>
         ) : (
           <>
-            <div className="timing-svg-viewport">
+            <div className="timing-svg-viewport" ref={viewportRef}>
               <svg ref={svgRef} width={svgWidth} height={svgHeight}
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="timing-waveform-svg"
                 role="img" aria-label="Digital signal timing waveforms">

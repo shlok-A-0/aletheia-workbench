@@ -795,3 +795,107 @@ export function functionWithMux(
     steps,
   };
 }
+
+/**
+ * Realizes any arbitrary Boolean function using an n-to-2^n Decoder + OR gate.
+ * Inputs: original variables.
+ * Output: Y.
+ */
+export function functionWithDecoder(
+  tt: TruthTable,
+  names = createBlockNameGenerator()
+): { netlist: Netlist; steps: Step[] } {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
+  const steps: Step[] = [];
+  const allVars = tt.vars;
+  const n = allVars.length;
+  const numOutputs = 1 << n;
+
+  const minterms = tt.rows.filter((r) => r.out === 1).map((r) => r.index);
+
+  steps.push({
+    title: 'Decoder Specification',
+    detail: `Input variables {${allVars.join(', ')}} (${n} variables) require an active-high ${n}-to-${numOutputs} decoder.`,
+  });
+  steps.push({
+    title: 'Minterm Collection',
+    detail: minterms.length > 0
+      ? `Active minterms for F=1: Σm(${minterms.join(', ')}). These decoder outputs feed the output OR gate.`
+      : 'Function is identically 0. Output tied to constant 0.',
+  });
+
+  const nodes: Node[] = [];
+
+  // Enable constant 1
+  const const1 = bNet('enable_1');
+  nodes.push({ kind: 'const', id: bGateId('e1'), value: 1, output: const1 });
+
+  // Inverters for input variables
+  const notVars: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const vName = allVars[i];
+    const vInv = bNet(`not_${vName}`);
+    nodes.push({
+      kind: 'gate',
+      id: bGateId('NOT'),
+      type: 'NOT',
+      inputs: [vName],
+      output: vInv,
+    });
+    notVars.push(vInv);
+  }
+
+  // Decoder minterm AND gates (each Y_i)
+  const decoderOutputs: string[] = [];
+  for (let o = 0; o < numOutputs; o++) {
+    const outNet = bNet(`dec_m${o}`);
+    decoderOutputs.push(outNet);
+    const andInputs: string[] = [const1];
+    for (let bit = 0; bit < n; bit++) {
+      const bitVal = (o >> (n - 1 - bit)) & 1;
+      andInputs.push(bitVal === 1 ? allVars[bit] : notVars[bit]);
+    }
+    nodes.push({
+      kind: 'gate',
+      id: bGateId('AND'),
+      type: 'AND',
+      inputs: andInputs,
+      output: outNet,
+    });
+  }
+
+  // Final OR gate or constant
+  const yOut = 'Y';
+  if (minterms.length === 0) {
+    nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: yOut });
+  } else if (minterms.length === numOutputs) {
+    nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: yOut });
+  } else if (minterms.length === 1) {
+    nodes.push({
+      kind: 'gate',
+      id: bGateId('BUF'),
+      type: 'BUF',
+      inputs: [decoderOutputs[minterms[0]]],
+      output: yOut,
+    });
+  } else {
+    nodes.push({
+      kind: 'gate',
+      id: bGateId('OR'),
+      type: 'OR',
+      inputs: minterms.map((m) => decoderOutputs[m]),
+      output: yOut,
+    });
+  }
+
+  return {
+    netlist: {
+      name: `func_decoder_${n}to${numOutputs}`,
+      inputs: [...allVars],
+      outputs: [yOut],
+      nodes,
+    },
+    steps,
+  };
+}
