@@ -389,6 +389,19 @@ export const SequentialPage: React.FC = () => {
     setCircuitStateHistory([]);
   }, [activeCircuitNetlist]);
 
+  React.useEffect(() => {
+    if (activeTab !== 'counters') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === 'Space' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleStepCircuit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, handleStepCircuit]);
+
   /* ──────── Tab 3: FSM Designer State ──────── */
   const [fsmStateTable, setFsmStateTable] = useState<StateTable>(stateTable ?? PRESET_FSMS[0].st);
   const [fsmDesignFF, setFsmDesignFF] = useState<FFType>('D');

@@ -41,11 +41,19 @@ const GALLERY_BLOCKS: GalleryBlockDef[] = [
 
 const GALLERY_GROUPS = ['Select', 'Decode'] as const;
 
+const PRESET_FUNCTIONS: { label: string; vars: string[]; minterms: number[] }[] = [
+  { label: 'Σm(1,3,6,7)', vars: ['A', 'B', 'C'], minterms: [1, 3, 6, 7] },
+  { label: 'Majority (AB+BC+AC)', vars: ['A', 'B', 'C'], minterms: [3, 5, 6, 7] },
+  { label: 'Odd Parity (A⊕B⊕C)', vars: ['A', 'B', 'C'], minterms: [1, 2, 4, 7] },
+  { label: '2-var XOR (A⊕B)', vars: ['A', 'B'], minterms: [1, 2] },
+];
+
 const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]);
 
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
   const [pageMode, setPageMode] = useState<'implement' | 'gallery'>('implement');
+  const [presetTT, setPresetTT] = useState<TruthTable | null>(null);
 
   // Implementation settings
   const [implTarget, setImplTarget] = useState<'mux' | 'decoder'>('mux');
@@ -57,8 +65,8 @@ export function BlocksPage() {
   // Live input bits for simulation
   const [bits, setBits] = useState<Record<string, 0 | 1>>({});
 
-  const activeTT = storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT;
-  const isSample = !storeTT || storeTT.vars.length < 1;
+  const activeTT = presetTT ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
+  const isSample = !presetTT && (!storeTT || storeTT.vars.length < 1);
 
   // Available MUX configurations based on truth table variables
   const muxConfigs = useMemo(() => {
@@ -220,6 +228,26 @@ export function BlocksPage() {
 
           {/* Implementation target selector */}
           <div className="dp-groups" style={{ marginBottom: 0 }}>
+            <div className="dp-group">
+              <span className="t-label">Presets</span>
+              <div className="dp-chips">
+                {PRESET_FUNCTIONS.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    className="dp-chip"
+                    onClick={() => {
+                      setPresetTT(truthTableFromMinterms(p.vars, p.minterms));
+                      setSelectedMuxConfigIdx(0);
+                      setBits({});
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="dp-group">
               <span className="t-label">MSI Block</span>
               <div className="dp-chips">

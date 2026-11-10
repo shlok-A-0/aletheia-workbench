@@ -3,33 +3,9 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../../store';
 import { createProjectFile, parseProjectFile } from '../../store/project';
 import { EXAMPLES, loadExample } from '../examples';
-import { gateCount, pathDepth, verify } from '../../engine/circuit/simulate';
-import type { Netlist } from '../../engine/types';
+import { gateCount, pathDepth, specifiedPathDelay, verify } from '../../engine/circuit/simulate';
 import { PageHead } from '../deep/PageHead';
-
-function specifiedPathDelay(netlist: Netlist | null): number | null {
-  if (!netlist || netlist.nodes.some((node) => node.kind === 'ff' || node.kind === 'block')) return null;
-  const delayByNet = new Map(netlist.inputs.map((net) => [net, 0]));
-  const unknownNets = new Set<string>();
-  let remaining = netlist.nodes.filter((node) => node.kind === 'gate');
-  let progressed = true;
-  while (remaining.length > 0 && progressed) {
-    progressed = false;
-    remaining = remaining.filter((gate) => {
-      if (!gate.inputs.every((net) => delayByNet.has(net))) return true;
-      progressed = true;
-      if (gate.delay === undefined || gate.inputs.some((net) => unknownNets.has(net))) {
-        unknownNets.add(gate.output);
-        delayByNet.set(gate.output, 0);
-      } else {
-        delayByNet.set(gate.output, Math.max(0, ...gate.inputs.map((net) => delayByNet.get(net) ?? 0)) + gate.delay);
-      }
-      return false;
-    });
-  }
-  if (remaining.length > 0 || netlist.outputs.some((net) => unknownNets.has(net) || !delayByNet.has(net))) return null;
-  return Math.max(0, ...netlist.outputs.map((net) => delayByNet.get(net) ?? 0));
-}
+import { openPrintableLabReport } from '../export/labReport';
 
 function escaped(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -232,7 +208,8 @@ export function DashboardPage() {
             aria-label="Choose an Aletheia project JSON file"
             onChange={(event) => void loadProject(event.target.files?.[0])}
           />
-          <button className="btn-primary" onClick={openReport}>Export printable report</button>
+          <button className="btn-primary" onClick={() => openPrintableLabReport(state)}>Print / Save PDF</button>
+          <button className="btn-secondary" onClick={openReport}>Download HTML</button>
         </div>
       </section>
       {notice && <p className={`dashboard-notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>}

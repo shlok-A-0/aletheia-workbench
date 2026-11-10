@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../../store';
 import { createProjectFile } from '../../store/project';
 import { useResults } from '../../pipeline/useResults';
+import { openPrintableLabReport } from '../export/labReport';
 import { Section } from './Section';
 import { IconArrow } from './icons';
 
@@ -66,7 +67,15 @@ export function VerifySection() {
         <button type="button" className="wb-btn-primary" onClick={exportProject} disabled={!r.hasResult}>
           Export project <IconArrow />
         </button>
-        <Link className="wb-btn-ghost" to="/dashboard">Printable report</Link>
+        <button
+          type="button"
+          className="wb-btn-ghost"
+          onClick={() => openPrintableLabReport(useStore.getState())}
+          disabled={!r.hasResult}
+        >
+          Export Lab Report (PDF)
+        </button>
+        <Link className="wb-btn-ghost" to="/dashboard">Dashboard</Link>
         {note && <span className="wb-note" role="status">{note}</span>}
       </div>
 

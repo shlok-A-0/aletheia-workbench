@@ -93,12 +93,17 @@ export function Hero() {
   };
 
   const isExpr = src.mode === 'expr';
+  const activeVars = useStore((s) => s.vars);
+  const isHighVar = activeVars.length > 5;
   const status = error
     ? { cls: 'is-error', text: error }
     : loaded
       ? { cls: 'is-ok', text: `${loaded} loaded. Type to replace it.` }
       : results.hasResult
-        ? { cls: 'is-ok', text: `${results.formula}  ·  ${results.gateCount} gates  ·  ${results.literals} literals` }
+        ? {
+            cls: 'is-ok',
+            text: `${results.formula}  ·  ${results.gateCount} gates  ·  ${results.literals} literals${isHighVar ? ' (6+ vars: solved via Quine–McCluskey)' : ''}`,
+          }
         : { cls: '', text: 'Type a function to begin.' };
 
   return (

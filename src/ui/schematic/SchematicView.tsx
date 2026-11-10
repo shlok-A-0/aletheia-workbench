@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BaseEdge,
   Handle,
@@ -276,12 +276,12 @@ function toFlow(
 export interface SchematicViewProps {
   netlist: Netlist;
   /** Input name → current value. Missing names default to 0. */
-  inputs: Record<string, 0 | 1>;
-  onToggleInput: (name: string) => void;
+  inputs?: Record<string, 0 | 1>;
+  onToggleInput?: (name: string) => void;
   height?: number;
 }
 
-function Inner({ netlist, inputs, onToggleInput, height = 420 }: SchematicViewProps) {
+function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicViewProps) {
   const [layout, setLayout] = useState<SchematicLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -304,7 +304,11 @@ function Inner({ netlist, inputs, onToggleInput, height = 420 }: SchematicViewPr
     }
   }, [netlist, inputs]);
 
-  const flow = useMemo(() => (layout ? toFlow(layout, values, onToggleInput) : null), [layout, values, onToggleInput]);
+  const toggle = useCallback((net: string) => {
+    onToggleInput?.(net);
+  }, [onToggleInput]);
+
+  const flow = useMemo(() => (layout ? toFlow(layout, values, toggle) : null), [layout, values, toggle]);
 
   if (error) return <div className="sch-empty" role="alert">Could not lay out this circuit: {error}</div>;
   if (!flow || !layout) return <div className="sch-empty">Routing wires…</div>;
