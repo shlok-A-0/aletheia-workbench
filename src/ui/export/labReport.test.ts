@@ -26,13 +26,22 @@ describe('generateLabReportHtml', () => {
       },
     });
 
-    const html = generateLabReportHtml(useStore.getState());
+    const sampleSvg = '<svg id="test-schematic"><rect width="100" height="100" /></svg>';
+    const html = generateLabReportHtml(useStore.getState(), sampleSvg);
     expect(html).toContain('Digital Logic Design Report');
     expect(html).toContain('Aletheia Workbench');
     expect(html).toContain('F = AB + C');
     expect(html).toContain('&Sigma;m(1, 3, 5, 6, 7)');
     expect(html).toContain('Canonical Truth Table');
-    expect(html).toContain('Component Bill of Materials');
+    expect(html).toContain('3. Circuit Schematic &amp; Implementation');
+    expect(html).toContain('<svg id="test-schematic">');
+    expect(html).toContain('Component Bill of Materials (74LS TTL)');
+    // Automatically populated IC mapping & prices
+    expect(html).toContain('7408');
+    expect(html).toContain('7432');
+    expect(html).toContain('Estimated Total Cost:');
+    // Automatically populated fault coverage
+    expect(html).toContain('Hardware Verification &amp; Fault Coverage');
     expect(html).toContain('FUNCTIONALLY EQUIVALENT TO TRUTH TABLE');
     expect(html).toContain('@page');
     expect(html).toContain('window.print()');

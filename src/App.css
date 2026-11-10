@@ -2339,6 +2339,64 @@
 
 .fault-matrix {
   min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.fault-matrix thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card, #0f172a);
+  z-index: 5;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.fault-matrix tbody tr {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.fault-matrix tbody tr:hover td {
+  background: rgba(184, 255, 61, 0.10) !important;
+}
+
+.fault-matrix tbody tr.is-selected td {
+  background: rgba(184, 255, 61, 0.20) !important;
+  color: #fff;
+  border-top: 1px solid var(--accent-lime, #a3e635);
+  border-bottom: 1px solid var(--accent-lime, #a3e635);
+}
+
+.fault-matrix tbody tr.is-selected td:first-child {
+  border-left: 3px solid var(--accent-lime, #a3e635);
+}
+
+.fault-active-dot {
+  display: inline-block;
+  color: var(--accent-lime, #a3e635);
+  margin-right: 6px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.fault-net-cell {
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.fault-type-cell {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan, #38bdf8);
+}
+
+.fault-matrix td.cell-detected {
+  color: var(--accent-emerald, #34d399);
+  font-weight: 700;
+}
+
+.fault-matrix td.cell-miss {
+  color: rgba(148, 163, 184, 0.35);
 }
 
 .fault-detected {

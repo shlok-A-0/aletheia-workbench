@@ -14,6 +14,9 @@ import '@xyflow/react/dist/style.css';
 import type { Netlist } from '../../engine/types';
 import { evaluate } from '../../engine/circuit/simulate';
 import {
+  BUBBLE_R,
+  backCurveX,
+  gateGeometry,
   isSchematicSupported,
   layoutSchematic,
   roundedPath,
@@ -37,42 +40,6 @@ interface GateData extends Record<string, unknown> {
 interface WireData extends Record<string, unknown> {
   points: { x: number; y: number }[];
   value: Bit;
-}
-
-const BUBBLE_R = 4;
-const INVERTING = new Set(['NAND', 'NOR', 'XNOR', 'NOT']);
-
-/** y of the concave back curve of an OR-style gate at height y (0..h). */
-function backCurveX(y: number, h: number, depth: number): number {
-  const t = y / h;
-  return 2 * t * (1 - t) * depth;
-}
-
-function gateGeometry(type: string, w: number, h: number) {
-  const bubble = INVERTING.has(type) ? BUBBLE_R * 2 : 0;
-  const bw = w - bubble;
-  const mid = h / 2;
-  switch (type) {
-    case 'AND':
-    case 'NAND':
-      return { body: `M0,0 H${bw - mid} A${mid},${mid} 0 0 1 ${bw - mid},${h} H0 Z`, back: null as number | null, shift: 0, bw, bubble };
-    case 'OR':
-    case 'NOR':
-      return { body: `M0,0 Q${bw * 0.55},0 ${bw},${mid} Q${bw * 0.55},${h} 0,${h} Q${bw * 0.28},${mid} 0,0 Z`, back: bw * 0.28, shift: 0, bw, bubble };
-    case 'XOR':
-    case 'XNOR': {
-      const s = 7;
-      return {
-        body: `M${s},0 Q${bw * 0.55 + s / 2},0 ${bw},${mid} Q${bw * 0.55 + s / 2},${h} ${s},${h} Q${bw * 0.28 + s},${mid} ${s},0 Z`,
-        back: bw * 0.28,
-        shift: s,
-        bw,
-        bubble,
-      };
-    }
-    default: // NOT, BUF
-      return { body: `M0,0 L${bw},${mid} L0,${h} Z`, back: null, shift: 0, bw, bubble };
-  }
 }
 
 const pinStyle = (x: number, y: number, side: 'l' | 'r') => ({

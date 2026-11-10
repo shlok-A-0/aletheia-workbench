@@ -175,14 +175,34 @@ export function FaultsPage() {
               <table className="ldam-table fault-matrix">
                 <thead><tr><th>Net</th><th>Fault</th>{report.testVectors?.map((bits, index) =>
                   <th key={index} aria-label={`Vector ${index}`}>{bits.join('')}</th>)}</tr></thead>
-                <tbody>{report.table.map((entry) => (
-                  <tr key={`${entry.net}-${entry.stuckAt}`}>
-                    <td>{entry.net}</td><td>SA{entry.stuckAt}</td>
-                    {report.testVectors?.map((_, index) => <td key={index}>
-                      {entry.detectedBy.includes(index) ? <span className="fault-detected" aria-label="detected">✓</span> : '—'}
-                    </td>)}
-                  </tr>
-                ))}</tbody>
+                <tbody>{report.table.map((entry) => {
+                  const isSelected = fault?.net === entry.net && fault?.stuckAt === entry.stuckAt;
+                  return (
+                    <tr
+                      key={`${entry.net}-${entry.stuckAt}`}
+                      className={isSelected ? 'is-selected' : ''}
+                      onClick={() => {
+                        setSelectedNet(entry.net);
+                        setStuckAt(entry.stuckAt);
+                      }}
+                      title="Click row to inspect this fault's discrepancy above"
+                    >
+                      <td className="fault-net-cell">
+                        {isSelected && <span className="fault-active-dot" aria-hidden="true">▶</span>}
+                        <span>{entry.net}</span>
+                      </td>
+                      <td className="fault-type-cell">SA{entry.stuckAt}</td>
+                      {report.testVectors?.map((_, index) => (
+                        <td
+                          key={index}
+                          className={entry.detectedBy.includes(index) ? 'cell-detected' : 'cell-miss'}
+                        >
+                          {entry.detectedBy.includes(index) ? <span className="fault-detected" aria-label="detected">✓</span> : '—'}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}</tbody>
               </table>
             </div>
           </section>

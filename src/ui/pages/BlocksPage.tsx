@@ -14,6 +14,7 @@ import {
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 import type { Netlist, TruthTable } from '../../engine/types';
 import { PageHead } from '../deep/PageHead';
+import { MsiBlockDiagram } from '../blocks/MsiBlockDiagram';
 
 const SchematicView = lazy(() => import('../schematic/SchematicView'));
 
@@ -61,6 +62,9 @@ export function BlocksPage() {
 
   // Gallery settings
   const [galleryKey, setGalleryKey] = useState('mux2');
+
+  // Diagram representation view ('block' = textbook MSI symbol, 'gate' = gate-level expansion)
+  const [diagramView, setDiagramView] = useState<'block' | 'gate'>('block');
 
   // Live input bits for simulation
   const [bits, setBits] = useState<Record<string, 0 | 1>>({});
@@ -382,17 +386,54 @@ export function BlocksPage() {
           </div>
         </div>
 
-        <div className="wb-schematic dp-schematic">
-          <Suspense fallback={<div className="sch-empty">Routing wires…</div>}>
-            <SchematicView
-              key={`${pageMode}-${implTarget}-${safeMuxIdx}-${galleryKey}`}
-              netlist={netlist}
+        {/* Diagram Representation Switcher */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--space-3) 0 var(--space-4)', flexWrap: 'wrap', gap: '8px' }}>
+          <span className="t-label">Schematic View Mode</span>
+          <div className="dp-chips" style={{ margin: 0 }}>
+            <button
+              type="button"
+              className={`dp-chip ${diagramView === 'block' ? 'is-on' : ''}`}
+              onClick={() => setDiagramView('block')}
+            >
+              Block Diagram (Textbook MSI)
+            </button>
+            <button
+              type="button"
+              className={`dp-chip ${diagramView === 'gate' ? 'is-on' : ''}`}
+              onClick={() => setDiagramView('gate')}
+            >
+              Gate-Level Expansion
+            </button>
+          </div>
+        </div>
+
+        {diagramView === 'block' ? (
+          <div className="card" style={{ padding: 'var(--space-4)', background: 'var(--bg-card, #0f172a)' }}>
+            <MsiBlockDiagram
+              mode={pageMode}
+              implTarget={implTarget}
+              activeTT={activeTT}
+              selectVars={activeMuxConfig?.selectVars ?? []}
+              galleryKey={galleryKey}
               inputs={bits}
               onToggleInput={toggle}
-              height={gateCount > 20 ? 560 : 440}
+              outputValues={values}
+              steps={steps}
             />
-          </Suspense>
-        </div>
+          </div>
+        ) : (
+          <div className="wb-schematic dp-schematic">
+            <Suspense fallback={<div className="sch-empty">Routing wires…</div>}>
+              <SchematicView
+                key={`${pageMode}-${implTarget}-${safeMuxIdx}-${galleryKey}`}
+                netlist={netlist}
+                inputs={bits}
+                onToggleInput={toggle}
+                height={gateCount > 20 ? 560 : 440}
+              />
+            </Suspense>
+          </div>
+        )}
       </section>
     </div>
   );

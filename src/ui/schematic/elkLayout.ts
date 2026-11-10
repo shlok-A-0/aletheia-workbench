@@ -358,3 +358,126 @@ export function roundedPath(points: { x: number; y: number }[], r = 6): string {
   if (points.length > 1) d += ` L${last.x},${last.y}`;
   return d;
 }
+
+export const BUBBLE_R = 4;
+
+/** y of the concave back curve of an OR-style gate at height y (0..h). */
+export function backCurveX(y: number, h: number, depth: number): number {
+  const t = y / h;
+  return 2 * t * (1 - t) * depth;
+}
+
+export function gateGeometry(type: string, w: number, h: number) {
+  const bubble = INVERTING.has(type as GateType) ? BUBBLE_R * 2 : 0;
+  const bw = w - bubble;
+  const mid = h / 2;
+  switch (type) {
+    case 'AND':
+    case 'NAND':
+      return { body: `M0,0 H${bw - mid} A${mid},${mid} 0 0 1 ${bw - mid},${h} H0 Z`, back: null as number | null, shift: 0, bw, bubble };
+    case 'OR':
+    case 'NOR':
+      return { body: `M0,0 Q${bw * 0.55},0 ${bw},${mid} Q${bw * 0.55},${h} 0,${h} Q${bw * 0.28},${mid} 0,0 Z`, back: bw * 0.28, shift: 0, bw, bubble };
+    case 'XOR':
+    case 'XNOR': {
+      const s = 7;
+      return {
+        body: `M${s},0 Q${bw * 0.55 + s / 2},0 ${bw},${mid} Q${bw * 0.55 + s / 2},${h} ${s},${h} Q${bw * 0.28 + s},${mid} ${s},0 Z`,
+        back: bw * 0.28,
+        shift: s,
+        bw,
+        bubble,
+      };
+    }
+    default: // NOT, BUF
+      return { body: `M0,0 L${bw},${mid} L0,${h} Z`, back: null, shift: 0, bw, bubble };
+  }
+}
+
+function escapeXml(unsafe: string): string {
+  return String(unsafe ?? '').replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+}
+
+/** Renders an ELK schematic layout directly to a standalone, sharp vector SVG string. */
+export function renderSchematicToSvg(layout: SchematicLayout): string {
+  const pad = 18;
+  const w = Math.max(120, Math.ceil(layout.width + pad * 2));
+  const h = Math.max(90, Math.ceil(layout.height + pad * 2));
+
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="auto" style="max-height:420px;display:block;margin:12px auto;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">`;
+  out += `<g transform="translate(${pad}, ${pad})">`;
+
+  // 1. Wires
+  for (const edge of layout.edges) {
+    const d = roundedPath(edge.points, 4);
+    out += `<path d="${d}" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
+  }
+
+  // 2. Junction dots
+  for (const j of layout.junctions) {
+    out += `<circle cx="${j.x}" cy="${j.y}" r="3.5" fill="#0f172a" />`;
+  }
+
+  // 3. Nodes
+  for (const n of layout.nodes) {
+    if (n.kind === 'input' || n.kind === 'output' || n.kind === 'const') {
+      const isOut = n.kind === 'output';
+      const bg = isOut ? '#f8fafc' : n.kind === 'const' ? '#f1f5f9' : '#f8fafc';
+      out += `<g transform="translate(${n.x}, ${n.y})">`;
+      out += `<rect width="${n.width}" height="${n.height}" rx="3" fill="${bg}" stroke="#0f172a" stroke-width="1.5" />`;
+      out += `<text x="${n.width / 2}" y="${n.height / 2 + 4}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#0f172a">${escapeXml(n.label)}</text>`;
+      out += `</g>`;
+    } else if (n.kind === 'gate') {
+      const type = n.gateType ?? 'AND';
+      const geo = gateGeometry(type, n.width, n.height);
+      const mid = n.height / 2;
+
+      out += `<g transform="translate(${n.x}, ${n.y})">`;
+      if (geo.back !== null) {
+        for (const p of n.inPins) {
+          out += `<line x1="${p.x}" y1="${p.y}" x2="${geo.shift + backCurveX(p.y, n.height, geo.back)}" y2="${p.y}" stroke="#0f172a" stroke-width="1.8" />`;
+        }
+      }
+      out += `<path d="${geo.body}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8" />`;
+      if (geo.shift > 0) {
+        out += `<path d="M0,0 Q${geo.bw * 0.28},${mid} 0,${n.height}" fill="none" stroke="#0f172a" stroke-width="1.8" />`;
+      }
+      if (geo.bubble > 0) {
+        out += `<circle cx="${geo.bw + BUBBLE_R}" cy="${mid}" r="${BUBBLE_R}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8" />`;
+      }
+      const labelX = type === 'NOT' || type === 'BUF' ? n.width * 0.35 : n.width * 0.48;
+      const labelText = type === 'BUF' ? 'BUF' : type === 'NOT' ? '' : type;
+      if (labelText) {
+        out += `<text x="${labelX}" y="${mid + 4}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#64748b">${labelText}</text>`;
+      }
+      out += `</g>`;
+    } else if (n.kind === 'ff') {
+      out += `<g transform="translate(${n.x}, ${n.y})">`;
+      out += `<rect width="${n.width}" height="${n.height}" rx="3" fill="#ffffff" stroke="#0f172a" stroke-width="1.8" />`;
+      out += `<text x="${n.width / 2}" y="18" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#0f172a">${escapeXml(n.ffType ?? 'FF')}</text>`;
+      out += `<path d="M0,${n.height / 2 - 6} L7,${n.height / 2} L0,${n.height / 2 + 6}" fill="none" stroke="#0f172a" stroke-width="1.5" />`;
+      out += `<text x="${n.width - 12}" y="22" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#0f172a">Q</text>`;
+      out += `<text x="${n.width - 12}" y="${n.height - 12}" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#64748b">Q'</text>`;
+      out += `</g>`;
+    }
+  }
+
+  out += `</g></svg>`;
+  return out;
+}
+
+/** Generates a complete standalone SVG circuit schematic for any supported Netlist. */
+export async function generateSchematicSvg(netlist: Netlist): Promise<string> {
+  if (!isSchematicSupported(netlist)) return '';
+  const layout = await layoutSchematic(netlist);
+  return renderSchematicToSvg(layout);
+}

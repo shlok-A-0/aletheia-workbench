@@ -1,5 +1,8 @@
 import type { RootStore } from '../../store';
 import { gateCount, pathDepth, specifiedPathDelay } from '../../engine/circuit/simulate';
+import { DEFAULT_IC_LIBRARY, mapToICs } from '../../engine/analysis/ic-map';
+import { runFaultTest } from '../../engine/analysis/fault';
+import { generateSchematicSvg } from '../schematic/elkLayout';
 
 function escaped(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -11,9 +14,14 @@ function escaped(value: unknown): string {
   })[c] ?? c);
 }
 
-export function generateLabReportHtml(state: RootStore): string {
+export function generateLabReportHtml(state: RootStore, schematicSvg?: string): string {
   const minterms =
     state.truthTable?.rows.filter((r) => r.out === 1).map((r) => r.index).join(', ') || 'None';
+
+  // Active netlist for cost, fault analysis, and diagram
+  const activeNetlist = state.activeVariant
+    ? state.netlists[state.activeVariant]
+    : (state.netlists.simplified ?? state.netlists.original ?? state.designedNetlist);
 
   // Truth table HTML (up to 32 rows to fit cleanly on report)
   const ttRows = state.truthTable?.rows.slice(0, 32).map((r) =>
@@ -34,23 +42,41 @@ export function generateLabReportHtml(state: RootStore): string {
     </tr>`;
   }).filter(Boolean).join('');
 
-  // IC bill of materials table
-  const icRows = state.costReport?.ics.map((ic) => `
+  // IC bill of materials table (calculate on-the-fly if not already in store)
+  let costReport = state.costReport;
+  if (!costReport && activeNetlist) {
+    try {
+      costReport = mapToICs(activeNetlist, DEFAULT_IC_LIBRARY, { preferBlocks: true });
+    } catch {
+      // fallback
+    }
+  }
+
+  const icRows = costReport?.ics.map((ic) => `
     <tr>
       <td class="bold-cell">${escaped(ic.part)}</td>
       <td>${ic.count}</td>
       <td>${ic.unusedGates}</td>
-      <td>${ic.unitPrice !== null ? `$${ic.unitPrice.toFixed(2)}` : '—'}</td>
-      <td>${ic.subtotal !== null ? `$${ic.subtotal.toFixed(2)}` : '—'}</td>
+      <td>${ic.unitPrice !== null && ic.unitPrice !== undefined ? `$${ic.unitPrice.toFixed(2)}` : '—'}</td>
+      <td>${ic.subtotal !== null && ic.subtotal !== undefined ? `$${ic.subtotal.toFixed(2)}` : '—'}</td>
     </tr>
   `).join('') ?? '<tr><td colspan="5">No IC mapping generated.</td></tr>';
 
-  // Fault coverage
-  const faultCov = state.faultReport
-    ? `${(state.faultReport.coverage * 100).toFixed(1)}%`
+  // Fault coverage (calculate on-the-fly for <= 6 inputs if not already in store)
+  let faultReport = state.faultReport;
+  if (!faultReport && activeNetlist && activeNetlist.inputs.length <= 6) {
+    try {
+      faultReport = runFaultTest(activeNetlist);
+    } catch {
+      // fallback
+    }
+  }
+
+  const faultCov = faultReport
+    ? `${(faultReport.coverage * 100).toFixed(1)}%`
     : 'Not computed';
 
-  const testVectors = state.faultReport?.minimalTestSet?.map((v) =>
+  const testVectors = faultReport?.minimalTestSet?.map((v) =>
     `<code>[${v.join(', ')}]</code>`
   ).join(', ') || 'None';
 
@@ -244,7 +270,14 @@ export function generateLabReportHtml(state: RootStore): string {
         : '<p>No truth table available.</p>'
     }
 
-    <h2>3. Implementation Comparison</h2>
+    <h2>3. Circuit Schematic &amp; Implementation</h2>
+    ${
+      schematicSvg
+        ? `<div class="schematic-container" style="page-break-inside:avoid;margin-bottom:14px;">
+            ${schematicSvg}
+          </div>`
+        : ''
+    }
     <table>
       <thead>
         <tr>
@@ -275,11 +308,11 @@ export function generateLabReportHtml(state: RootStore): string {
         ${icRows}
       </tbody>
       ${
-        state.costReport?.totalCost !== undefined
+        costReport?.totalCost !== undefined
           ? `<tfoot>
               <tr>
                 <th colspan="4" style="text-align:right;">Estimated Total Cost:</th>
-                <th class="bold-cell">$${state.costReport.totalCost.toFixed(2)}</th>
+                <th class="bold-cell">$${costReport.totalCost.toFixed(2)}</th>
               </tr>
             </tfoot>`
           : ''
@@ -324,11 +357,40 @@ export function generateLabReportHtml(state: RootStore): string {
 </html>`;
 }
 
-export function openPrintableLabReport(state: RootStore): void {
-  const html = generateLabReportHtml(state);
+export async function openPrintableLabReport(state: RootStore): Promise<void> {
+  // 1. Open window synchronously to avoid browser popup blockers
+  let win: Window | null = null;
   try {
-    const win = window.open('', '_blank');
+    win = typeof window !== 'undefined' ? window.open('', '_blank') : null;
     if (win) {
+      win.document.open();
+      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Preparing Lab Report...</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:40px;color:#334155;text-align:center;background:#f8fafc;}h2{margin:0 0 8px;color:#0f172a;}p{margin:0;font-size:13px;color:#64748b;}</style></head><body><h2>Preparing Aletheia Lab Report...</h2><p>Rendering vector schematic and compiling Bill of Materials.</p></body></html>`);
+      win.document.close();
+    }
+  } catch {
+    // Popup might be blocked or running headless
+  }
+
+  // 2. Generate vector schematic SVG
+  const activeNetlist = state.activeVariant
+    ? state.netlists[state.activeVariant]
+    : (state.netlists.simplified ?? state.netlists.original ?? state.designedNetlist);
+
+  let svg = '';
+  if (activeNetlist) {
+    try {
+      svg = await generateSchematicSvg(activeNetlist);
+    } catch {
+      // Non-fatal if schematic layout is unsupported
+    }
+  }
+
+  // 3. Generate full lab report HTML
+  const html = generateLabReportHtml(state, svg);
+
+  // 4. Update the opened window
+  try {
+    if (win && !win.closed) {
       win.document.open();
       win.document.write(html);
       win.document.close();
@@ -336,10 +398,10 @@ export function openPrintableLabReport(state: RootStore): void {
       return;
     }
   } catch {
-    // Popup or document write fallback
+    // Popup communication failed
   }
 
-  // Fallback if popup blocked: direct file download
+  // Fallback: direct file download if popup blocked
   try {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);

@@ -39,5 +39,25 @@ describe('BlocksPage', () => {
     expect(screen.queryByRole('button', { name: 'Ripple adder 4-bit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Comparator 4-bit' })).not.toBeInTheDocument();
   });
+
+  it('provides toggling between textbook MSI block diagram and gate-level expansion', () => {
+    useStore.setState({
+      truthTable: truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]),
+    });
+
+    render(<BlocksPage />);
+    const blockBtn = screen.getByRole('button', { name: /Block Diagram \(Textbook MSI\)/i });
+    const gateBtn = screen.getByRole('button', { name: /Gate-Level Expansion/i });
+    expect(blockBtn).toBeInTheDocument();
+    expect(gateBtn).toBeInTheDocument();
+
+    // Default is block diagram
+    expect(screen.getByText(/Figure: /i)).toBeInTheDocument();
+    expect(screen.getByText(/Multiplexer Realization/i)).toBeInTheDocument();
+
+    // Toggle to gate-level
+    fireEvent.click(gateBtn);
+    expect(gateBtn).toHaveClass('is-on');
+  });
 });
 
