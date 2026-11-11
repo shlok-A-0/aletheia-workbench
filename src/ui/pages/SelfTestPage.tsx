@@ -11,13 +11,13 @@ export function SelfTestPage() {
         <h1>System Self-Test</h1>
         <p className="subtitle">Deterministic golden examples exercise minimization, circuit conversion, simulation, and sequential analysis.</p>
       </div>
-      <section className="glass-card selftest-summary" aria-live="polite">
+      <section className="dp-panel selftest-summary" aria-live="polite">
         <strong>{passed}/{results.length} checks passing</strong>
         <button className="btn-primary" onClick={() => setResults(runSystemSelfTests())}>Run again</button>
       </section>
       <ul className="selftest-list">
         {results.map((result) => (
-          <li className={`glass-card selftest-result ${result.passed ? 'passed' : 'failed'}`} key={result.name}>
+          <li className={`dp-panel selftest-result ${result.passed ? 'passed' : 'failed'}`} key={result.name}>
             <span aria-label={result.passed ? 'Passed' : 'Failed'}>{result.passed ? '✓' : '✗'}</span>
             <div><strong>{result.name}</strong><p>{result.detail}</p></div>
           </li>

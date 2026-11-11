@@ -111,7 +111,7 @@ export function FaultsPage() {
     return (
       <div className="page-container dp">
         <PageHead kicker="05 / Faults" title="Fault Testing & Test Vectors" sub="Detect stuck-at faults and find a compact set of test vectors." />
-        <section className="glass-card dp-empty"><p>Nothing to test yet. Define a function and its circuit appears here.</p><Link className="btn-primary" to="/">Open the workbench</Link></section>
+        <section className="dp-panel dp-empty"><p>Nothing to test yet. Define a function and its circuit appears here.</p><Link className="btn-primary" to="/">Open the workbench</Link></section>
       </div>
     );
   }
@@ -120,10 +120,10 @@ export function FaultsPage() {
     <div className="page-container dp">
       <PageHead kicker="05 / Faults" title="Fault Testing & Test Vectors" sub="Stuck-at-0/1 injection, output discrepancy, fault coverage, and greedy test-set reduction." />
       {reportResult.error && <p className="p6-error" role="alert">{reportResult.error}</p>}
-      {reportResult.loading && <p className="glass-card" role="status" aria-busy="true">Running the fault analysis in the engine Web Worker…</p>}
+      {reportResult.loading && <p className="dp-panel" role="status" aria-busy="true">Running the fault analysis in the engine Web Worker…</p>}
       {report && (
         <>
-          <section className="glass-card">
+          <section className="dp-panel">
             <div className="card-header"><h3>Inject a stuck-at fault</h3></div>
             <div className="p6-control-grid fault-controls">
               <label>Fault site
@@ -165,7 +165,7 @@ export function FaultsPage() {
               ))}
           </section>
 
-          <section className="glass-card">
+          <section className="dp-panel">
             <div className="card-header"><h3>Fault coverage</h3></div>
             <div className="p6-stat-grid">
               <div><span>Detected</span><strong>{report.detected} / {report.total}</strong></div>
@@ -209,7 +209,7 @@ export function FaultsPage() {
             </div>
           </section>
 
-          <section className="glass-card">
+          <section className="dp-panel">
             <div className="card-header"><h3>Greedy minimal test set</h3></div>
             {report.minimalTestSet.length === 0
               ? <p>No detectable faults require test vectors.</p>

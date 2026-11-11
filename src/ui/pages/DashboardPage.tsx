@@ -189,7 +189,7 @@ export function DashboardPage() {
     <div className="page-container dp dashboard-page">
       <PageHead kicker="Report / Dashboard" title="Design Dashboard" sub="A compact view of the current design, with links into each analysis stage." />
 
-      <section className="glass-card dashboard-toolbar" aria-label="Project actions">
+      <section className="dp-panel dashboard-toolbar" aria-label="Project actions">
         <div>
           <label htmlFor="example-picker">Load a worked example</label>
           <select id="example-picker" value={selectedExample} onChange={(event) => setSelectedExample(event.target.value)}>
@@ -216,13 +216,13 @@ export function DashboardPage() {
 
       <section className="dashboard-grid" aria-label="Design workflow summary">
         {cards.slice(0, 1).map((card) => (
-          <article className="glass-card dashboard-card" key={card.title}>
+          <article className="dp-panel dashboard-card" key={card.title}>
             <div className="dashboard-card-head"><h2>{card.title}</h2><Link to={card.path}>Open</Link></div>
             <strong>{card.value}</strong><p>{card.detail}</p>
           </article>
         ))}
         {cards.slice(1, 2).map((card) => (
-          <article className="glass-card dashboard-card" key={card.title}>
+          <article className="dp-panel dashboard-card" key={card.title}>
             <div className="dashboard-card-head"><h2>{card.title}</h2><Link to={card.path}>Open</Link></div>
             <strong>{card.value}</strong><p>{card.detail}</p>
             {state.truthTable && <details><summary>View table rows</summary><div className="dashboard-table-scroll">
@@ -233,13 +233,13 @@ export function DashboardPage() {
           </article>
         ))}
         {cards.slice(2).map((card) => (
-          <article className="glass-card dashboard-card" key={card.title}>
+          <article className="dp-panel dashboard-card" key={card.title}>
             <div className="dashboard-card-head"><h2>{card.title}</h2><Link to={card.path}>Open</Link></div>
             <strong className="dashboard-formula">{card.value}</strong><p>{card.detail}</p>
           </article>
         ))}
 
-        <article className="glass-card dashboard-card">
+        <article className="dp-panel dashboard-card">
           <div className="dashboard-card-head"><h2>5. Simulation verification</h2><Link to="/circuit">Open</Link></div>
           <strong className={verification.result ? (verification.result.ok ? 'text-emerald' : 'text-rose') : ''}>
             {verification.result ? (verification.result.ok ? 'Verified ✓' : `Mismatch ✗ (${verification.result.mismatches.length})`) : verification.error ? 'Verification error' : 'Not available'}
@@ -247,7 +247,7 @@ export function DashboardPage() {
           <p>{verification.error ?? (verification.result ? 'The selected circuit was checked against every defined truth-table row.' : 'Synthesize a combinational circuit and truth table to verify equivalence.')}</p>
         </article>
 
-        <article className="glass-card dashboard-card">
+        <article className="dp-panel dashboard-card">
           <div className="dashboard-card-head"><h2>6. Gate / IC / cost / power</h2><Link to="/cost-power">Open</Link></div>
           <div className="variant-counts">
             {Object.entries(comparison).map(([variant, count]) => <span key={variant}>{variant}: <b>{count}</b> gates</span>)}
@@ -257,14 +257,14 @@ export function DashboardPage() {
           <p>{state.powerReport ? `Estimated power: ${state.powerReport.totalW === undefined ? 'static component unavailable' : `${state.powerReport.totalW} W`}` : 'Power estimate not computed'}</p>
         </article>
 
-        <article className="glass-card dashboard-card">
+        <article className="dp-panel dashboard-card">
           <div className="dashboard-card-head"><h2>7. Fault coverage</h2><Link to="/faults">Open</Link></div>
           <strong>{state.faultReport ? `${state.faultReport.coverage.toFixed(1)}%` : 'Not tested'}</strong>
           <p>{state.faultReport ? `${state.faultReport.detected}/${state.faultReport.total} faults detected · ${state.faultReport.minimalTestSet.length} test vectors` : 'Run stuck-at fault analysis on the circuit.'}</p>
         </article>
 
         {state.designedNetlist && (
-          <article className="glass-card dashboard-card">
+          <article className="dp-panel dashboard-card">
             <div className="dashboard-card-head"><h2>8. Timing and state sequence</h2><Link to="/timing">Open</Link></div>
             <strong>{state.waveform ? `${state.waveform.events.length} timing events` : state.stateTable?.model.toUpperCase() ?? 'Sequential design'}</strong>
             <p>{state.waveform ? `Duration ${state.waveform.time.at(-1) ?? 0} ticks` : `${state.designedNetlist.nodes.filter((node) => node.kind === 'ff').length} flip-flops in ${state.designedNetlist.name}`}</p>
@@ -272,7 +272,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section className="glass-card dashboard-footer">
+      <section className="dp-panel dashboard-footer">
         <h2>Continue the workflow</h2>
         <div className="dashboard-links">
           <Link to="/selftest">Run system self-test</Link>

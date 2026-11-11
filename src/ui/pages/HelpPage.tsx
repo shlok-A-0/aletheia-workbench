@@ -28,7 +28,7 @@ export function HelpPage() {
       <PageHead kicker="Learn / Concepts" title="Concept Guide" sub="A quick map from core digital-logic concepts to the workbench tools that demonstrate them." />
       <div className="concept-grid">
         {concepts.map((concept) => (
-          <article className="glass-card concept-card" key={concept.name}>
+          <article className="dp-panel concept-card" key={concept.name}>
             <h2>{concept.name}</h2>
             <p>{concept.description}</p>
             <Link to={concept.path}>Open {concept.page}</Link>

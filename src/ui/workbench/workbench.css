@@ -910,22 +910,6 @@
 }
 
 /* React Flow reset, then schematic skin */
-.wb-schematic .react-flow {
-  --xy-background-color: transparent;
-  background: transparent;
-}
-
-.wb-schematic .react-flow__handle {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.wb-schematic .react-flow__node {
-  cursor: default;
-  /* React Flow sets pointer-events:none on nodes that are neither draggable nor
-     selectable, which made the input terminals unclickable. */
-  pointer-events: all !important;
-}
 
 .sch-frame {
   width: 100%;

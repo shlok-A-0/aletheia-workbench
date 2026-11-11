@@ -112,6 +112,9 @@ function signalValue(signal: Waveform['signals'][number], time: number): 0 | 1 |
   return signal.values[time] ?? 0;
 }
 
+/** A downloaded PNG has a fixed dark backdrop so it reads the same in any theme. */
+const EXPORT_BACKGROUND = '#0c0e13';
+
 export function TimingPage() {
   const {
     netlists,
@@ -284,7 +287,7 @@ export function TimingPage() {
         canvas.height = svg.viewBox.baseVal.height;
         const context = canvas.getContext('2d');
         if (!context) throw new Error('PNG export is unavailable because a canvas context could not be created.');
-        context.fillStyle = '#101827';
+        context.fillStyle = EXPORT_BACKGROUND;
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0);
         const blob = await new Promise<Blob>((resolve, reject) => {
@@ -341,7 +344,7 @@ export function TimingPage() {
     <div className="page-container dp timing-page">
       <PageHead kicker="02 / Timing" title="Timing Diagrams & Hazards" sub="Clock edges, propagation delay, setup and hold, and visible logic hazards." />
 
-      <section className="card timing-controls">
+      <section className="dp-panel timing-controls">
         <div className="timing-control-grid">
           <label>Preset
             <select value={preset} onChange={(event) => handlePresetChange(event.target.value as Preset)}>
@@ -388,7 +391,7 @@ export function TimingPage() {
           </label>
         </div>
         <div className="timing-action-row">
-          <button className="btn-primary-large" onClick={runSimulation}>Run simulation</button>
+          <button className="btn-primary" onClick={runSimulation}>Run simulation</button>
           <button className="btn-secondary" disabled={!waveform} onClick={() => setPlaying((value) => !value)}>
             {playing ? 'Pause' : 'Play'}
           </button>
@@ -411,7 +414,7 @@ export function TimingPage() {
         )}
       </section>
 
-      <section className="card timing-stimulus-card">
+      <section className="dp-panel timing-stimulus-card">
         <div className="section-header">
           <div>
             <h2>Input stimulus</h2>
@@ -436,7 +439,7 @@ export function TimingPage() {
         )}
       </section>
 
-      <section className="card timing-waveform-card">
+      <section className="dp-panel timing-waveform-card">
         <div className="section-header">
           <div>
             <h2>Waveform viewer</h2>
@@ -452,7 +455,7 @@ export function TimingPage() {
               <svg ref={svgRef} width={svgWidth} height={svgHeight}
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="timing-waveform-svg"
                 role="img" aria-label="Digital signal timing waveforms">
-                <rect width={svgWidth} height={svgHeight} fill="#101827" />
+                <rect width={svgWidth} height={svgHeight} className="timing-bg" />
                 <text x="12" y="19" className="timing-axis-label">Signal</text>
                 <line x1="100" x2={svgWidth - 12} y1="28" y2="28" className="timing-axis" />
                 {Array.from({ length: Math.floor(totalDuration / tickStep) + 1 }, (_, index) => index * tickStep)
@@ -533,7 +536,7 @@ export function TimingPage() {
       </section>
 
       <div className="timing-results-grid">
-        <section className="card">
+        <section className="dp-panel">
           <h2>State sequence</h2>
           {stateChanges.length > 0 ? (
             <div className="timing-sequence-list">
@@ -541,7 +544,7 @@ export function TimingPage() {
             </div>
           ) : <p className="timing-note">This preset has no state outputs.</p>}
         </section>
-        <section className="card">
+        <section className="dp-panel">
           <h2>Hazard analysis</h2>
           {hazardWarnings.length > 0 ? hazardWarnings.map((hazard) => (
             <div className="timing-warning" key={`${hazard.where}-${hazard.type}`}>

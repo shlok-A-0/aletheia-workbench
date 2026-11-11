@@ -1,5 +1,4 @@
 export { InputPage } from './InputPage';
-export { TruthTablePage } from './TruthTablePage';
 export { BlocksPage } from './BlocksPage';
 export { SequentialPage } from './SequentialPage';
 export { TimingPage } from './TimingPage';
