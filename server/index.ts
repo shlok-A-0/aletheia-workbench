@@ -1,3 +1,4 @@
+import { createLimiter, type Limiter } from './rateLimit';
 import express, { type ErrorRequestHandler, type Request, type Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -27,6 +28,7 @@ export interface ServerOptions {
   rateWindowMs?: number;
   /** Ceiling for all callers combined per window, so one warm instance bounds spend. */
   globalLimit?: number;
+  limiter?: Limiter;
 }
 
 interface ChatRequestBody {
@@ -217,8 +219,7 @@ export function createApp(options: ServerOptions = {}) {
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
   const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT);
   const globalLimit = options.globalLimit ?? (configuredGlobal > 0 ? configuredGlobal : DEFAULT_GLOBAL_LIMIT);
-  const global = { count: 0, resetAt: 0 };
-  const requestsByIp = new Map<string, { count: number; resetAt: number }>();
+  const limiter = options.limiter ?? createLimiter();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const origin = req.get('origin');
@@ -241,30 +242,13 @@ export function createApp(options: ServerOptions = {}) {
   app.use(express.json({ limit: '128kb', strict: true }));
 
   app.post('/api/chat', async (req: Request, res: Response) => {
-    const now = Date.now();
     // Behind Vercel/most proxies req.ip is the proxy, which would put every visitor in one bucket.
     const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
     const ip = forwarded || req.get('x-real-ip') || req.ip || req.socket.remoteAddress || 'unknown';
-    if (global.resetAt <= now) {
-      global.count = 0;
-      global.resetAt = now + rateWindowMs;
-    }
-    if (global.count >= globalLimit) {
+    if (!(await limiter.hit('global', globalLimit, rateWindowMs)) || !(await limiter.hit(`ip:${ip}`, rateLimit, rateWindowMs))) {
       res.status(429).json({ error: 'rate_limited' });
       return;
     }
-    global.count++;
-    if (requestsByIp.size > 5000) requestsByIp.clear();
-    for (const [address, entry] of requestsByIp) {
-      if (entry.resetAt <= now) requestsByIp.delete(address);
-    }
-    const entry = requestsByIp.get(ip);
-    if (entry && entry.count >= rateLimit && entry.resetAt > now) {
-      res.status(429).json({ error: 'rate_limited' });
-      return;
-    }
-    if (entry && entry.resetAt > now) entry.count++;
-    else requestsByIp.set(ip, { count: 1, resetAt: now + rateWindowMs });
 
     const body = validateBody(req.body);
     if (!body) {
