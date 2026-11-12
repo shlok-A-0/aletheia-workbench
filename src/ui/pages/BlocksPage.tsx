@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { useStore } from '../../store';
-import { evaluate } from '../../engine/circuit/simulate';
+import { evaluate, truthTableOfNetlist } from '../../engine/circuit/simulate';
 import {
   mux,
   demux,
@@ -11,11 +11,13 @@ import {
   functionWithMux,
   functionWithDecoder,
   functionWithDecoderNand,
+  functionsWithDemux,
 } from '../../engine/circuit/blocks';
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 import type { Netlist, TruthTable } from '../../engine/types';
 import { Link } from 'react-router-dom';
 import { PageHead } from '../deep/PageHead';
+import { DemuxDiagram, DEMUX_DIAGRAM_MAX_VARS } from '../blocks/DemuxDiagram';
 import { MsiBlockDiagram } from '../blocks/MsiBlockDiagram';
 
 const SchematicView = lazy(() => import('../schematic/SchematicView'));
@@ -55,12 +57,14 @@ const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1
 
 const NO_OUTPUTS: string[] = [];
 
-type ImplTarget = 'mux' | 'decoder' | 'decoder-nand';
+type ImplTarget = 'mux' | 'decoder' | 'decoder-nand' | 'demux';
 
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
   // Select the stable array itself: a fresh `?? []` each render would loop the store subscription.
-  const workbenchOutputs = useStore((state) => state.netlists.simplified?.outputs) ?? NO_OUTPUTS;
+  const workbenchNetlist = useStore((state) => state.netlists.simplified);
+  const workbenchOutputs = workbenchNetlist?.outputs ?? NO_OUTPUTS;
+  const [outputIdx, setOutputIdx] = useState(0);
   const [pageMode, setPageMode] = useState<'implement' | 'gallery'>('implement');
   const [presetTT, setPresetTT] = useState<TruthTable | null>(null);
   const [presetLabel, setPresetLabel] = useState('');
@@ -78,7 +82,18 @@ export function BlocksPage() {
   // Live input bits for simulation
   const [bits, setBits] = useState<Record<string, 0 | 1>>({});
 
-  const activeTT = presetTT ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
+  // One truth table per output of the workbench design, so every output can be realized, not just the first.
+  const workbenchTTs = useMemo(() => {
+    if (presetTT || !storeTT || storeTT.vars.length < 1 || !workbenchNetlist || workbenchOutputs.length < 2) return null;
+    try {
+      return workbenchOutputs.map((_, i) => truthTableOfNetlist(workbenchNetlist, storeTT.vars, i));
+    } catch {
+      return null;
+    }
+  }, [presetTT, storeTT, workbenchNetlist, workbenchOutputs]);
+  const safeOutputIdx = Math.min(outputIdx, Math.max(0, (workbenchTTs?.length ?? 1) - 1));
+
+  const activeTT = presetTT ?? workbenchTTs?.[safeOutputIdx] ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
   const isSample = !presetTT && (!storeTT || storeTT.vars.length < 1);
 
   // Clear preset override whenever the workbench synthesizes a new truth table
@@ -164,6 +179,17 @@ export function BlocksPage() {
           label: `${activeMuxConfig.label} Realization`,
           desc: activeMuxConfig.desc,
         };
+      } else if (implTarget === 'demux') {
+        const tts = workbenchTTs ?? [activeTT];
+        const { netlist: nl, steps: st } = functionsWithDemux(tts, workbenchTTs ? [...workbenchOutputs] : []);
+        return {
+          netlist: nl,
+          steps: st,
+          label: `1-to-${1 << activeTT.vars.length} Demultiplexer + OR Realization`,
+          desc: tts.length > 1
+            ? `One shared demux (D = 1) feeds an OR gate for each of the ${tts.length} outputs.`
+            : `Demux with D tied to 1 routes a 1 to the selected line; ORing the minterm lines gives F(${activeTT.vars.join(', ')}).`,
+        };
       } else if (implTarget === 'decoder-nand') {
         const { netlist: nl, steps: st } = functionWithDecoderNand(activeTT);
         return {
@@ -190,10 +216,12 @@ export function BlocksPage() {
         desc: gDef.desc,
       };
     }
-  }, [pageMode, implTarget, activeMuxConfig, activeTT, galleryKey]);
+  }, [pageMode, implTarget, activeMuxConfig, activeTT, galleryKey, workbenchTTs, workbenchOutputs]);
 
   // The active-low decoder has no dedicated block symbol, so it is always shown at gate level.
-  const noBlockSymbol = pageMode === 'implement' && implTarget === 'decoder-nand';
+  const noBlockSymbol =
+    pageMode === 'implement' &&
+    (implTarget === 'decoder-nand' || (implTarget === 'demux' && activeTT.vars.length > DEMUX_DIAGRAM_MAX_VARS));
   const shownView = noBlockSymbol ? 'gate' : diagramView;
 
   // Live output evaluation
@@ -251,9 +279,12 @@ export function BlocksPage() {
             </div>
           </div>
 
-          {!presetTT && workbenchOutputs.length > 1 && (
+          {workbenchTTs && (
             <p className="dp-note" role="note">
-              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}). This page realizes the first one, {workbenchOutputs[0]}, as a single-output function.
+              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}).{' '}
+              {implTarget === 'demux'
+                ? 'One shared demultiplexer realizes all of them at once.'
+                : `Pick which output to realize, or choose Demultiplexer + OR to build all ${workbenchOutputs.length} together.`}
             </p>
           )}
 
@@ -288,8 +319,25 @@ export function BlocksPage() {
                 <option value="mux">Multiplexer</option>
                 <option value="decoder">Decoder + OR</option>
                 <option value="decoder-nand">Active-low decoder + NAND</option>
+                <option value="demux">Demultiplexer + OR</option>
               </select>
             </label>
+            {workbenchTTs && implTarget !== 'demux' && (
+              <label className="dp-field">
+                <span className="t-label">Output</span>
+                <select
+                  value={safeOutputIdx}
+                  onChange={(e) => {
+                    setOutputIdx(Number(e.target.value));
+                    setBits({});
+                  }}
+                >
+                  {workbenchOutputs.map((name, i) => (
+                    <option key={name} value={i}>{name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             {implTarget === 'mux' && (
               <label className="dp-field">
                 <span className="t-label">MUX size</span>
@@ -312,7 +360,7 @@ export function BlocksPage() {
           {steps.length > 0 && (
             <details className="dp-derivation">
               <summary className="t-label">
-                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : implTarget === 'decoder' ? 'minterm mapping' : 'active-low minterm mapping'}
+                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : implTarget === 'decoder' ? 'minterm mapping' : implTarget === 'demux' ? 'shared demux lines' : 'active-low minterm mapping'}
               </summary>
               <ol>
                 {steps.map((st, i) => (
@@ -410,6 +458,15 @@ export function BlocksPage() {
 
         {shownView === 'block' ? (
           <div className="dp-diagram">
+            {pageMode === 'implement' && implTarget === 'demux' ? (
+              <DemuxDiagram
+                tts={workbenchTTs ?? [activeTT]}
+                outputNames={netlist.outputs}
+                inputs={bits}
+                onToggleInput={toggle}
+                outputValues={values}
+              />
+            ) : (
             <MsiBlockDiagram
               mode={pageMode}
               implTarget={implTarget}
@@ -421,12 +478,13 @@ export function BlocksPage() {
               outputValues={values}
               steps={steps}
             />
+            )}
           </div>
         ) : (
           <div className="wb-schematic dp-schematic">
             <Suspense fallback={<div className="sch-empty">Routing wires…</div>}>
               <SchematicView
-                key={`${pageMode}-${implTarget}-${safeMuxIdx}-${galleryKey}`}
+                key={`${pageMode}-${implTarget}-${safeMuxIdx}-${safeOutputIdx}-${galleryKey}`}
                 netlist={netlist}
                 inputs={bits}
                 onToggleInput={toggle}

@@ -261,6 +261,7 @@
 .dp-bit--out { cursor: default; border-style: dashed; }
 .dp-bit--out.is-1 { border-style: solid; }
 .dp-schematic { min-height: 440px; }
+.dp-schematic--sm { min-height: 320px; }
 
 /* ---------- flip-flops ---------- */
 .ff-grid-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
@@ -335,3 +336,85 @@
 
 /* mobile: segmented rows scroll instead of widening the page */
 @media (max-width: 560px) { .shell-main .dp .wb-seg { flex-wrap: nowrap; } }
+
+/* ---------- demux realization diagram ---------- */
+.dmx-svg { max-width: 700px; height: auto; display: block; margin: 0 auto; }
+.dmx-box { fill: var(--inset); stroke: var(--signal-ink); stroke-width: 2.5; }
+.dmx-title { fill: var(--text-1); font: 800 18px var(--font-mono); }
+.dmx-sub { fill: var(--signal-ink); font: 700 13px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; }
+.dmx-pin { fill: var(--text-1); font: 600 12px var(--font-mono); }
+.dmx-pin--dim { fill: var(--text-3); font-size: 11px; }
+.dmx-pin--line { fill: var(--text-3); font-size: 11px; }
+.dmx-pin--line.is-on { fill: var(--signal-ink); }
+.dmx-wire { stroke: var(--line-strong); stroke-width: 1.5; }
+.dmx-wire.is-on { stroke: var(--signal-ink); stroke-width: 2.5; }
+.dmx-wire.is-idle { stroke: var(--line); stroke-width: 1; }
+.dmx-wire--route { stroke: var(--logic-x); stroke-width: 1.2; opacity: 0.8; }
+.dmx-wire--route.is-on { stroke: var(--signal-ink); opacity: 1; stroke-width: 2.5; }
+.dmx-input { cursor: pointer; }
+.dmx-input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.dmx-or { fill: var(--surface); stroke: var(--text-2); stroke-width: 2; }
+.dmx-or.is-on { stroke: var(--signal-ink); }
+.dmx-out { fill: var(--text-1); font: 700 13px var(--font-mono); }
+.dmx-val { fill: var(--text-2); font: 800 18px var(--font-mono); }
+.dmx-val.is-on { fill: var(--signal-ink); }
+.dmx-caption { font-size: var(--fs-sm); margin-top: var(--space-2); text-align: center; }
+.dp-mode { margin-bottom: var(--space-5); }
+.dp-panel--spaced { margin-bottom: var(--space-6); }
+.dp-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.dp-field { display: grid; gap: var(--space-2); min-width: min(100%, 220px); flex: 1 1 220px; }
+.dp-field select { min-height: 40px; padding: 0 var(--space-3); width: 100%; }
+.dp-derivation { background: var(--inset); border: 1px solid var(--line); }
+.dp-derivation summary { cursor: pointer; padding: var(--space-3) var(--space-4); list-style: none; }
+.dp-derivation summary::-webkit-details-marker { display: none; }
+.dp-derivation summary::before { content: '+ '; color: var(--signal-ink); }
+.dp-derivation[open] summary::before { content: '- '; }
+.dp-derivation ol { margin: 0; padding: 0 var(--space-4) var(--space-4) var(--space-6); display: grid; gap: var(--space-2); color: var(--text-2); font-size: var(--fs-sm); }
+.dp-derivation b { color: var(--text-1); }
+.dp-diagram { background: var(--inset); border: 1px solid var(--line-strong); padding: var(--space-4); overflow-x: auto; }
+.dp-note { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--logic-x); color: var(--text-1); font-size: var(--fs-sm); }
+
+/* ---------- utilities (replace one-off inline styles) ---------- */
+.u-mt-1 { margin-top: var(--space-1); }
+.u-mt-2 { margin-top: var(--space-2); }
+.u-mt-3 { margin-top: var(--space-3); }
+.u-mt-4 { margin-top: var(--space-4); }
+.u-mb-4 { margin-bottom: var(--space-4); }
+.u-my-3 { margin-block: var(--space-3); }
+.u-ml-auto { margin-left: auto; }
+.u-self-start { align-self: flex-start; }
+.u-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.u-row--tight { gap: var(--space-2); }
+.u-wrap { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.u-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.u-between { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.u-center { text-align: center; }
+.u-center-row { display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap; }
+.u-col-center { display: flex; flex-direction: column; align-items: center; }
+.u-pad-5 { padding: var(--space-5); }
+.u-pad-compact { padding: var(--space-3) var(--space-4); }
+.u-muted { color: var(--text-2); }
+.u-caption { font-size: var(--fs-sm); }
+.u-maxh-scroll { max-height: 320px; overflow: auto; }
+
+/* ---------- MSI diagram hooks ---------- */
+.msi-block-container { text-align: center; }
+.msi-svg { max-width: 740px; height: auto; display: block; margin: 0 auto; }
+.msi-addr-group,
+.msi-pin-group,
+.msi-select-group { cursor: pointer; }
+
+/* ---------- state diagram (SVG) ---------- */
+.sd-arrow { fill: var(--signal-ink); }
+.sd-arrow--self { fill: var(--text-2); }
+.sd-edge { fill: none; stroke: var(--signal-ink); stroke-width: 1.5; }
+.sd-edge--self { stroke: var(--text-2); }
+.sd-label { fill: var(--text-1); font-family: var(--font-mono); font-size: 11px; }
+.sd-label--self { fill: var(--text-2); }
+.sd-node { fill: var(--inset); stroke: var(--line-strong); stroke-width: 2; }
+.sd-node.is-reset { fill: var(--signal-dim); stroke: var(--signal); }
+.sd-node-text { fill: var(--text-1); font-family: var(--font-mono); font-weight: 700; }
+.sd-node-out { fill: var(--signal-ink); font-family: var(--font-mono); }
+
+/* ---------- timing waveform ---------- */
+.timing-bg { fill: var(--inset); }

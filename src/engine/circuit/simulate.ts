@@ -81,12 +81,13 @@ export function evaluate(
 /**
  * Derives the complete TruthTable of a combinational netlist.
  * If targetVars is provided, generates rows for all combinations of targetVars.
+ * outputIndex picks which output of a multi-output netlist to tabulate (default: the first).
  */
-export function truthTableOfNetlist(netlist: Netlist, targetVars?: string[]): TruthTable {
+export function truthTableOfNetlist(netlist: Netlist, targetVars?: string[], outputIndex = 0): TruthTable {
   const vars = targetVars ? [...targetVars] : [...netlist.inputs];
   const numVars = vars.length;
   const numRows = 1 << numVars;
-  const primaryOutNet = netlist.outputs[0];
+  const primaryOutNet = netlist.outputs[outputIndex] ?? netlist.outputs[0];
 
   const rows: TruthTable['rows'] = [];
 

@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { BlocksPage } from './BlocksPage';
 import { useStore } from '../../store';
+import { fullAdder } from '../../engine/circuit/blocks';
+import { truthTableOfNetlist } from '../../engine/circuit/simulate';
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 
 describe('BlocksPage', () => {
@@ -68,6 +70,24 @@ describe('BlocksPage', () => {
     expect(screen.getByText(/Active-low decoder/i, { selector: 'summary ~ * *, h3, b, strong, p, span' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Block diagram' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Gate level' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('lets a multi-output design pick an output and realize all of them with one demux', () => {
+    const adder = fullAdder();
+    useStore.setState({
+      truthTable: truthTableOfNetlist(adder, undefined, 0),
+      netlists: { original: null, simplified: adder, nand: null, nor: null },
+    });
+    render(<MemoryRouter><BlocksPage /></MemoryRouter>);
+    expect(screen.getByLabelText('Output')).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(/2 outputs/i);
+
+    fireEvent.change(screen.getByLabelText('Output'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Block'), { target: { value: 'demux' } });
+    expect(screen.getByRole('note')).toHaveTextContent(/shared demultiplexer/i);
+    expect(screen.getByRole('img', { name: /demultiplexer.*2 output OR gates/i })).toBeInTheDocument();
+    // outputs are listed in the live result panel
+    for (const name of adder.outputs) expect(screen.getAllByText(name).length).toBeGreaterThan(0);
   });
 });
 
