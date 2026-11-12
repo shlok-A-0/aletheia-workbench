@@ -5,6 +5,8 @@ import { EXAMPLES, loadExample } from '../examples';
 import { analyzeSource, applyAnalysis, type Source, type SourceMode } from '../../pipeline/analyze';
 import { useResults } from '../../pipeline/useResults';
 import { IconArrow } from './icons';
+import { decodeShare, shareUrl } from '../share';
+import { HeroPreview } from './HeroPreview';
 
 const DEFAULT_EXPR = "A'B + C";
 const OPS: [string, string][] = [["'", 'NOT'], [' + ', 'OR'], [' * ', 'AND'], [' ^ ', 'XOR'], ['(', ''], [')', '']];
@@ -17,6 +19,8 @@ const MODES: { id: SourceMode; label: string }[] = [
 const INLINE_ROUTES = new Set(['/', '/#circuit']);
 
 function initialSource(): Source {
+  const shared = typeof window !== 'undefined' ? decodeShare(window.location.search) : null;
+  if (shared) return shared;
   const s = useStore.getState();
   if (s.rawInput) {
     const mode = s.inputMode === 'minterms' || s.inputMode === 'maxterms' ? s.inputMode : 'expr';
@@ -41,6 +45,7 @@ export function Hero() {
   const [src, setSrc] = useState<Source>(initialSource);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState('');
   const timer = useRef(0);
   const field = useRef<HTMLInputElement | null>(null);
 
@@ -62,7 +67,8 @@ export function Hero() {
   useEffect(() => {
     // Guard on the derived table, not rawInput: the store's default rawInput is
     // non-empty, so checking it left a first-time visitor with an empty page.
-    if (!useStore.getState().truthTable) run(src, 0);
+    // A shared link always wins over whatever was restored from the last session.
+    if (decodeShare(window.location.search) || !useStore.getState().truthTable) run(src, 0);
     return () => window.clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,6 +106,18 @@ export function Hero() {
     } else {
       navigate(route);
     }
+  };
+
+  const share = async () => {
+    const url = shareUrl(src);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('Link copied');
+    } catch {
+      // Clipboard can be blocked (insecure context, permissions): show the link instead.
+      setShareNote(url);
+    }
+    window.setTimeout(() => setShareNote(''), 4000);
   };
 
   const isExpr = src.mode === 'expr';
@@ -149,6 +167,12 @@ export function Hero() {
                   {m.label}
                 </button>
               ))}
+            </div>
+            <div className="wb-share-wrap">
+              <span className="wb-share-note" role="status" aria-live="polite">{shareNote}</span>
+              <button type="button" className="wb-share" onClick={share} disabled={!results.hasResult}>
+                Copy share link
+              </button>
             </div>
             {!isExpr && (
               <label className="wb-vars">
@@ -228,6 +252,8 @@ export function Hero() {
           </div>
         </div>
       </div>
+
+      <HeroPreview />
 
       <div className="wb-hero-foot" aria-hidden="true">
         <span>↓ scroll</span>

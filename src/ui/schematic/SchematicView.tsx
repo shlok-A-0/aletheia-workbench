@@ -23,6 +23,7 @@ import {
   type SchematicLayout,
   type SchematicNode,
 } from './elkLayout';
+import { rerouteWire, type Offsets } from './dragRoute';
 
 type Bit = 0 | 1 | undefined;
 
@@ -225,11 +226,13 @@ export interface SchematicViewProps {
 function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicViewProps) {
   const [layout, setLayout] = useState<SchematicLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Gates the user dragged: id -> distance moved from the auto-layout position.
+  const [offsets, setOffsets] = useState<Offsets>({});
 
   useEffect(() => {
     let live = true;
     layoutSchematic(netlist).then(
-      (next) => { if (live) { setError(null); setLayout(next); } },
+      (next) => { if (live) { setError(null); setOffsets({}); setLayout(next); } },
       (err: unknown) => { if (live) setError(err instanceof Error ? err.message : String(err)); }
     );
     return () => { live = false; };
@@ -249,7 +252,34 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
     onToggleInput?.(net);
   }, [onToggleInput]);
 
-  const flow = useMemo(() => (layout ? toFlow(layout, values, toggle) : null), [layout, values, toggle]);
+  const flow = useMemo(() => {
+    if (!layout) return null;
+    const base = toFlow(layout, values, toggle);
+    const moved = Object.keys(offsets).length > 0;
+    return {
+      nodes: base.nodes.map((n) => {
+        const o = offsets[n.id];
+        const isInput = (n.data as TerminalData).node?.kind === 'input';
+        return {
+          ...n,
+          draggable: !isInput,
+          position: o ? { x: n.position.x + o.dx, y: n.position.y + o.dy } : n.position,
+        };
+      }),
+      edges: moved
+        ? base.edges.map((e) => ({
+            ...e,
+            data: { ...(e.data as WireData), points: rerouteWire((e.data as WireData).points, offsets[e.source], offsets[e.target]) },
+          }))
+        : base.edges,
+    };
+  }, [layout, values, toggle, offsets]);
+
+  const onNodeDrag = useCallback((_: unknown, node: Node) => {
+    const home = layout?.nodes.find((n) => n.id === node.id);
+    if (!home) return;
+    setOffsets((prev) => ({ ...prev, [node.id]: { dx: node.position.x - home.x, dy: node.position.y - home.y } }));
+  }, [layout]);
 
   if (error) return <div className="sch-empty" role="alert">Could not lay out this circuit: {error}</div>;
   if (!flow || !layout) return <div className="sch-empty">Routing wires…</div>;
@@ -269,7 +299,8 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         fitViewOptions={{ padding: 0.08, maxZoom: 1.15 }}
         minZoom={0.3}
         maxZoom={2}
-        nodesDraggable={false}
+        nodesDraggable
+        onNodeDrag={onNodeDrag}
         nodesConnectable={false}
         elementsSelectable={false}
         zoomOnScroll={false}
@@ -280,6 +311,11 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         preventScrolling={false}
         proOptions={{ hideAttribution: true }}
       />
+      {Object.keys(offsets).length > 0 && (
+        <button type="button" className="btn-secondary sch-reset" onClick={() => setOffsets({})}>
+          Reset layout
+        </button>
+      )}
     </div>
   );
 }
