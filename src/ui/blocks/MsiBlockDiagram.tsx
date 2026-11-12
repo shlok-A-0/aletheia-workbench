@@ -91,11 +91,10 @@ export function MsiBlockDiagram({
     const svgH = boxH + 110;
 
     return (
-      <div className="msi-block-container" style={{ textAlign: 'center' }}>
+      <div className="msi-block-container">
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
           width="100%"
-          style={{ maxWidth: svgW, height: 'auto', display: 'block', margin: '0 auto' }}
           className="msi-svg"
         >
           <defs>
@@ -186,7 +185,6 @@ export function MsiBlockDiagram({
                   fontSize="12"
                   fontWeight="700"
                   fontFamily="monospace"
-                  style={{ cursor: residualVars.length > 0 ? 'pointer' : 'default' }}
                   onClick={() => {
                     if (residualVars.length === 1) onToggleInput(residualVars[0]);
                   }}
@@ -232,8 +230,7 @@ export function MsiBlockDiagram({
               <g
                 key={sVar}
                 className="msi-select-group"
-                style={{ cursor: 'pointer' }}
-                onClick={() => onToggleInput(sVar)}
+                                onClick={() => onToggleInput(sVar)}
               >
                 <line
                   x1={x}
@@ -303,7 +300,7 @@ export function MsiBlockDiagram({
           </text>
         </svg>
 
-        <p className="dp-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+        <p className="dp-muted msi-caption">
           Figure: <strong>{numDataLines}:1 Multiplexer Realization</strong> with inputs{' '}
           {selectVars.join(', ')} on Select lines S<sub>{k - 1}</sub>..S<sub>0</sub> and Shannon
           residues on Data pins I<sub>0</sub>..I<sub>{numDataLines - 1}</sub>.
@@ -343,11 +340,10 @@ export function MsiBlockDiagram({
     const svgH = boxH + 60;
 
     return (
-      <div className="msi-block-container" style={{ textAlign: 'center' }}>
+      <div className="msi-block-container">
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
           width="100%"
-          style={{ maxWidth: svgW, height: 'auto', display: 'block', margin: '0 auto' }}
           className="msi-svg"
         >
           <defs>
@@ -400,8 +396,7 @@ export function MsiBlockDiagram({
             return (
               <g
                 key={vName}
-                style={{ cursor: 'pointer' }}
-                onClick={() => onToggleInput(vName)}
+                                onClick={() => onToggleInput(vName)}
                 className="msi-addr-group"
               >
                 <line
@@ -516,7 +511,7 @@ export function MsiBlockDiagram({
           )}
         </svg>
 
-        <p className="dp-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+        <p className="dp-muted msi-caption">
           Figure: <strong>{n}-to-{numOutputs} Decoder + OR Realization</strong>. Active minterms{' '}
           {minterms.length > 0 ? `Σm(${minterms.join(', ')})` : 'none'} are tied into the external
           summing OR gate.
@@ -569,11 +564,10 @@ export function MsiBlockDiagram({
   const activeSegments = bcdPatterns[bcdDigit] ?? '0000000';
 
   return (
-    <div className="msi-block-container" style={{ textAlign: 'center' }}>
+    <div className="msi-block-container">
       <svg
         viewBox="0 0 640 360"
         width="100%"
-        style={{ maxWidth: 640, height: 'auto', display: 'block', margin: '0 auto' }}
         className="msi-svg"
       >
         <rect
@@ -638,7 +632,7 @@ export function MsiBlockDiagram({
           Outputs: {Object.entries(outputValues).map(([k, v]) => `${k}=${v}`).join(', ')}
         </text>
       </svg>
-      <p className="dp-muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+      <p className="dp-muted msi-caption">
         Standard Textbook <strong>MSI Block Symbol</strong>. Toggle input bits below to observe the logic routing.
       </p>
     </div>

@@ -148,49 +148,23 @@ const FFNode = memo(function FFNode({ data }: NodeProps<Node<FFData>>) {
   const cls = value === 1 ? 'sch-ff is-1' : value === 0 ? 'sch-ff is-0' : 'sch-ff';
 
   return (
-    <div
-      className={cls}
-      style={{
-        width: w,
-        height: h,
-        position: 'relative',
-        background: 'var(--surface)',
-        border: '1.5px solid var(--line-strong)',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          height: '100%',
-          padding: '4px 6px',
-          boxSizing: 'border-box',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '11px',
-          color: 'var(--text-1)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
+    <div className={cls} style={{ width: w, height: h }}>
+      <div className="sch-ff-body">
+        <div className="sch-ff-row">
+          <span className="sch-ff-pin">
             {ffType === 'JK' ? 'J' : ffType === 'T' ? 'T' : 'D'}
           </span>
-          <span style={{ fontWeight: 700, color: value === 1 ? 'var(--signal-ink)' : 'var(--text-1)' }}>
-            Q
-          </span>
+          <span className={`sch-ff-q${value === 1 ? ' is-1' : ''}`}>Q</span>
         </div>
-        <div style={{ textAlign: 'center', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.05em' }}>
-          {ffType}-FF
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: 'var(--text-2)' }}>
+        <div className="sch-ff-type">{ffType}-FF</div>
+        <div className="sch-ff-row">
+          <span className="sch-ff-pin sch-ff-clk">
             <svg width="8" height="10" viewBox="0 0 8 10">
               <path d="M0,1 L7,5 L0,9" fill="none" stroke="currentColor" strokeWidth="1.2" />
             </svg>
             CLK
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
+          <span className="sch-ff-pin sch-ff-pin--dim">
             {ffType === 'JK' ? 'K' : node.outPins && node.outPins.length > 1 ? "Q'" : ''}
           </span>
         </div>
@@ -336,7 +310,7 @@ class SchematicErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundary
   render() {
     if (this.state.hasError) {
       return (
-        <div className="sch-empty" role="alert" style={{ color: 'var(--text-2, #a7aebb)' }}>
+        <div className="sch-empty" role="alert">
           Schematic preview could not be rendered: {this.state.message}
         </div>
       );

@@ -916,6 +916,7 @@
 }
 
 .sch-empty {
+  color: var(--text-2);
   padding: var(--space-8) var(--space-5);
   text-align: center;
   font-family: var(--font-mono);
@@ -1366,3 +1367,14 @@ button.sch-term-hit:hover {
     padding: var(--space-5);
   }
 }
+
+/* flip-flop node body in the schematic */
+.sch-ff { position: relative; background: var(--surface); border: 1.5px solid var(--line-strong); box-sizing: border-box; }
+.sch-ff-body { display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 4px 6px; box-sizing: border-box; font-family: var(--font-mono); font-size: 11px; color: var(--text-1); }
+.sch-ff-row { display: flex; justify-content: space-between; align-items: center; }
+.sch-ff-pin { font-size: 10px; color: var(--text-2); }
+.sch-ff-pin--dim { color: var(--text-3); }
+.sch-ff-clk { display: inline-flex; align-items: center; gap: 2px; }
+.sch-ff-q { font-weight: 700; color: var(--text-1); }
+.sch-ff-q.is-1 { color: var(--signal-ink); }
+.sch-ff-type { text-align: center; font-size: 9px; color: var(--text-3); letter-spacing: 0.05em; }
