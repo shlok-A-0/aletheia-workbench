@@ -2,7 +2,7 @@ import type { TruthTable } from '../../engine/types';
 
 interface MsiBlockDiagramProps {
   mode: 'implement' | 'gallery';
-  implTarget?: 'mux' | 'decoder' | 'decoder-nand';
+  implTarget?: 'mux' | 'decoder' | 'decoder-nand' | 'demux';
   activeTT?: TruthTable;
   selectVars?: string[];
   galleryKey?: string;
