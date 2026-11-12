@@ -10,6 +10,7 @@ import {
   bcdTo7Seg,
   functionWithMux,
   functionWithDecoder,
+  functionWithDecoderNand,
 } from '../../engine/circuit/blocks';
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 import type { Netlist, TruthTable } from '../../engine/types';
@@ -54,6 +55,8 @@ const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1
 
 const NO_OUTPUTS: string[] = [];
 
+type ImplTarget = 'mux' | 'decoder' | 'decoder-nand';
+
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
   // Select the stable array itself: a fresh `?? []` each render would loop the store subscription.
@@ -63,7 +66,7 @@ export function BlocksPage() {
   const [presetLabel, setPresetLabel] = useState('');
 
   // Implementation settings
-  const [implTarget, setImplTarget] = useState<'mux' | 'decoder'>('mux');
+  const [implTarget, setImplTarget] = useState<ImplTarget>('mux');
   const [selectedMuxConfigIdx, setSelectedMuxConfigIdx] = useState(0);
 
   // Gallery settings
@@ -161,6 +164,14 @@ export function BlocksPage() {
           label: `${activeMuxConfig.label} Realization`,
           desc: activeMuxConfig.desc,
         };
+      } else if (implTarget === 'decoder-nand') {
+        const { netlist: nl, steps: st } = functionWithDecoderNand(activeTT);
+        return {
+          netlist: nl,
+          steps: st,
+          label: `${activeTT.vars.length}-to-${1 << activeTT.vars.length} Active-low Decoder + NAND/AND Realization`,
+          desc: `74138-style decoder with the cheaper of NAND (F=1 rows) or AND (F=0 rows) for F(${activeTT.vars.join(', ')}).`,
+        };
       } else {
         const { netlist: nl, steps: st } = functionWithDecoder(activeTT);
         return {
@@ -180,6 +191,10 @@ export function BlocksPage() {
       };
     }
   }, [pageMode, implTarget, activeMuxConfig, activeTT, galleryKey]);
+
+  // The active-low decoder has no dedicated block symbol, so it is always shown at gate level.
+  const noBlockSymbol = pageMode === 'implement' && implTarget === 'decoder-nand';
+  const shownView = noBlockSymbol ? 'gate' : diagramView;
 
   // Live output evaluation
   const values = useMemo(() => {
@@ -266,12 +281,13 @@ export function BlocksPage() {
               <select
                 value={implTarget}
                 onChange={(e) => {
-                  setImplTarget(e.target.value as 'mux' | 'decoder');
+                  setImplTarget(e.target.value as ImplTarget);
                   setBits({});
                 }}
               >
                 <option value="mux">Multiplexer</option>
                 <option value="decoder">Decoder + OR</option>
+                <option value="decoder-nand">Active-low decoder + NAND</option>
               </select>
             </label>
             {implTarget === 'mux' && (
@@ -296,7 +312,7 @@ export function BlocksPage() {
           {steps.length > 0 && (
             <details className="dp-derivation">
               <summary className="t-label">
-                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : 'minterm mapping'}
+                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : implTarget === 'decoder' ? 'minterm mapping' : 'active-low minterm mapping'}
               </summary>
               <ol>
                 {steps.map((st, i) => (
@@ -378,13 +394,21 @@ export function BlocksPage() {
 
         <div className="wb-seg wb-seg--sm dp-mode" role="group" aria-label="Diagram style">
           {([['block', 'Block diagram'], ['gate', 'Gate level']] as const).map(([m, label]) => (
-            <button key={m} type="button" aria-pressed={diagramView === m} className={diagramView === m ? 'is-on' : undefined} onClick={() => setDiagramView(m)}>
+            <button
+              key={m}
+              type="button"
+              aria-pressed={shownView === m}
+              className={shownView === m ? 'is-on' : undefined}
+              disabled={m === 'block' && noBlockSymbol}
+              title={m === 'block' && noBlockSymbol ? 'This realization is shown at gate level' : undefined}
+              onClick={() => setDiagramView(m)}
+            >
               {label}
             </button>
           ))}
         </div>
 
-        {diagramView === 'block' ? (
+        {shownView === 'block' ? (
           <div className="dp-diagram">
             <MsiBlockDiagram
               mode={pageMode}

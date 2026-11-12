@@ -797,6 +797,88 @@ export function functionWithMux(
 }
 
 /**
+ * Realizes a function with an active-LOW n-to-2^n decoder (74138 style) plus one gate.
+ * Active-low outputs are 0 for the selected line, so:
+ *   F = NAND(outputs of the minterms where F=1), or
+ *   F = AND(outputs of the minterms where F=0).
+ * The side with fewer terms is used, which is what a designer wiring a real 74138 would do.
+ */
+export function functionWithDecoderNand(
+  tt: TruthTable,
+  names = createBlockNameGenerator()
+): { netlist: Netlist; steps: Step[] } {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
+  const allVars = tt.vars;
+  const n = allVars.length;
+  const numOutputs = 1 << n;
+  const ones = tt.rows.filter((r) => r.out === 1).map((r) => r.index);
+  const zeros = tt.rows.filter((r) => r.out !== 1).map((r) => r.index);
+  const useNand = ones.length <= zeros.length;
+  const chosen = useNand ? ones : zeros;
+
+  const steps: Step[] = [
+    {
+      title: 'Active-low decoder',
+      detail: `Variables {${allVars.join(', ')}} drive an active-low ${n}-to-${numOutputs} decoder: the selected output goes to 0, all others stay 1.`,
+    },
+    {
+      title: 'Choose the cheaper side',
+      detail: useNand
+        ? `F=1 on ${ones.length} row(s) and F=0 on ${zeros.length}. Use one NAND over the F=1 outputs: Σm(${ones.join(', ')}).`
+        : `F=0 on ${zeros.length} row(s) and F=1 on ${ones.length}. Use one AND over the F=0 outputs: F is 1 unless a zero row is selected, ΠM(${zeros.join(', ')}).`,
+    },
+  ];
+
+  const nodes: Node[] = [];
+  const notVars: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const inv = bNet(`not_${allVars[i]}`);
+    nodes.push({ kind: 'gate', id: bGateId('NOT'), type: 'NOT', inputs: [allVars[i]], output: inv });
+    notVars.push(inv);
+  }
+  const lines: string[] = [];
+  for (let o = 0; o < numOutputs; o++) {
+    const out = bNet(`dec_n${o}`);
+    lines.push(out);
+    const ins: string[] = [];
+    for (let bit = 0; bit < n; bit++) {
+      ins.push(((o >> (n - 1 - bit)) & 1) === 1 ? allVars[bit] : notVars[bit]);
+    }
+    nodes.push({ kind: 'gate', id: bGateId('NAND'), type: 'NAND', inputs: ins.length > 1 ? ins : [ins[0], ins[0]], output: out });
+  }
+
+  const y = 'Y';
+  if (ones.length === 0) {
+    nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: y });
+  } else if (zeros.length === 0) {
+    nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: y });
+  } else if (chosen.length === 1) {
+    // One active-low line: F=1 rows -> invert it; F=0 rows -> pass it through.
+    nodes.push({
+      kind: 'gate',
+      id: bGateId(useNand ? 'NOT' : 'BUF'),
+      type: useNand ? 'NOT' : 'BUF',
+      inputs: [lines[chosen[0]]],
+      output: y,
+    });
+  } else {
+    nodes.push({
+      kind: 'gate',
+      id: bGateId(useNand ? 'NAND' : 'AND'),
+      type: useNand ? 'NAND' : 'AND',
+      inputs: chosen.map((m) => lines[m]),
+      output: y,
+    });
+  }
+
+  return {
+    netlist: { name: `func_decoder_nand_${n}to${numOutputs}`, inputs: [...allVars], outputs: [y], nodes },
+    steps,
+  };
+}
+
+/**
  * Realizes any arbitrary Boolean function using an n-to-2^n Decoder + OR gate.
  * Inputs: original variables.
  * Output: Y.

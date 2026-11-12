@@ -60,5 +60,14 @@ describe('BlocksPage', () => {
     fireEvent.click(gateBtn);
     expect(gateBtn).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('realizes with an active-low decoder + NAND and shows it at gate level', () => {
+    useStore.setState({ truthTable: truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]) });
+    render(<MemoryRouter><BlocksPage /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Block'), { target: { value: 'decoder-nand' } });
+    expect(screen.getByText(/Active-low decoder/i, { selector: 'summary ~ * *, h3, b, strong, p, span' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Block diagram' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gate level' })).toHaveAttribute('aria-pressed', 'true');
+  });
 });
 
