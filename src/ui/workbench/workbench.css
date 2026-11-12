@@ -1431,3 +1431,7 @@ button.sch-term-hit:hover {
   .wb-preview-body { height: 250px; }
   .wb-preview-body .sch-frame { height: 100% !important; }
 }
+
+/* wire junction dots (a split in a net) */
+.sch-dot { fill: var(--text-2); stroke: none; pointer-events: none; }
+.sch-dot.is-1 { fill: var(--signal); }

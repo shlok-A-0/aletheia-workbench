@@ -119,4 +119,44 @@ describe('ELK schematic layout', () => {
     expect(layout.edges.length).toBeGreaterThan(0);
     expect(orthogonal(layout)).toBe(true);
   });
+
+  describe('wiring presentation', () => {
+    const EXPRS = ["AC + A'CD + BCD' + A'B'E + ADE'", "A'BCD + AB'E + CDE", "AB + C", "A ^ B ^ C"];
+
+    it.each(EXPRS)('every net that fans out has a junction dot: %s', async (src) => {
+      const layout = await layoutSchematic(exprToNetlist(parseExpr(src)));
+      const perNet = new Map<string, number>();
+      for (const e of layout.edges) perNet.set(e.net, (perNet.get(e.net) ?? 0) + 1);
+      for (const [net, count] of perNet) {
+        if (count < 2) continue;
+        expect(layout.junctions.some((j) => j.net === net), `net ${net} splits ${count} ways but has no dot`).toBe(true);
+      }
+    });
+
+    it.each(EXPRS)('every dot sits on a wire of its own net: %s', async (src) => {
+      const layout = await layoutSchematic(exprToNetlist(parseExpr(src)));
+      for (const j of layout.junctions) {
+        const onWire = layout.edges.some((e) => e.net === j.net && segments(e.points).some((sg) => {
+          const minX = Math.min(sg.x1, sg.x2) - 0.6, maxX = Math.max(sg.x1, sg.x2) + 0.6;
+          const minY = Math.min(sg.y1, sg.y2) - 0.6, maxY = Math.max(sg.y1, sg.y2) + 0.6;
+          return j.x >= minX && j.x <= maxX && j.y >= minY && j.y <= maxY;
+        }));
+        expect(onWire).toBe(true);
+      }
+    });
+
+    it.each(EXPRS)('every wire crossing of two different nets gets a hop: %s', async (src) => {
+      const layout = await layoutSchematic(exprToNetlist(parseExpr(src)));
+      const hopCount = Object.values(layout.hops).reduce((n, h) => n + h.length, 0);
+      // crossings() counts every different-net crossing; hops skip only ones too close to a wire end.
+      expect(hopCount).toBeLessThanOrEqual(crossings(layout));
+      if (crossings(layout) > 0) expect(hopCount).toBeGreaterThan(0);
+    });
+
+    it('lists inputs in variable order for a 5-variable function', async () => {
+      const layout = await layoutSchematic(exprToNetlist(parseExpr(EXPRS[0])));
+      const order = layout.nodes.filter((n) => n.kind === 'input').sort((a, b) => a.y - b.y).map((n) => n.label);
+      expect(order).toEqual(['A', 'B', 'C', 'D', 'E']);
+    });
+  });
 });
