@@ -125,14 +125,8 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
     navigate('/circuit');
   };
 
-  const groupColors = [
-    'rgba(0, 210, 255, 0.25)',
-    'rgba(16, 185, 129, 0.25)',
-    'rgba(245, 158, 11, 0.25)',
-    'rgba(236, 72, 153, 0.25)',
-    'rgba(168, 85, 247, 0.25)',
-    'rgba(239, 68, 68, 0.25)',
-  ];
+  // Prime-implicant group tints live in index.css (--kmap-group-N) so themes stay in one place.
+  const groupColors = [1, 2, 3, 4, 5, 6].map((n) => `var(--kmap-group-${n})`);
 
   if (!qmResult || !sopResult || !posResult || !qmDetails || !kmapSimpResult) {
     const workerError = workerResult && 'error' in workerResult ? workerResult.error : null;

@@ -427,3 +427,13 @@ pre {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* K-map prime-implicant group tints */
+:root {
+  --kmap-group-1: rgba(0, 210, 255, 0.25);
+  --kmap-group-2: rgba(16, 185, 129, 0.25);
+  --kmap-group-3: rgba(245, 158, 11, 0.25);
+  --kmap-group-4: rgba(236, 72, 153, 0.25);
+  --kmap-group-5: rgba(168, 85, 247, 0.25);
+  --kmap-group-6: rgba(239, 68, 68, 0.25);
+}
