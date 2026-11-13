@@ -7,8 +7,8 @@ export const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
 
   const count = nodes.length;
   const radius = Math.max(130, Math.min(220, count * 28));
-  const width = Math.max(480, (radius + 60) * 2);
-  const height = Math.max(380, (radius + 60) * 2);
+  const width = Math.max(520, (radius + 100) * 2);
+  const height = Math.max(420, (radius + 100) * 2);
   const centerX = width / 2;
   const centerY = height / 2;
   const nodeRadius = 26;
@@ -63,16 +63,17 @@ export const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
         if (!from || !to) return null;
 
         if (e.from === e.to) {
-          // Self-loop arc
-          const lx1 = from.x - 14;
-          const ly1 = from.y - nodeRadius;
-          const lx2 = from.x + 14;
-          const ly2 = from.y - nodeRadius;
-          const path = `M ${lx1} ${ly1} C ${from.x - 30} ${from.y - nodeRadius - 40}, ${from.x + 30} ${from.y - nodeRadius - 40}, ${lx2} ${ly2}`;
+          // Self-loop bulges away from the middle of the diagram, so it never runs into the edges between states.
+          const out = Math.atan2(from.y - centerY, from.x - centerX);
+          const a = Number.isFinite(out) && (from.x !== centerX || from.y !== centerY) ? out : -Math.PI / 2;
+          const at = (ang: number, r: number) => `${from.x + r * Math.cos(ang)} ${from.y + r * Math.sin(ang)}`;
+          const path = `M ${at(a - 0.5, nodeRadius)} C ${at(a - 0.55, nodeRadius + 46)}, ${at(a + 0.55, nodeRadius + 46)}, ${at(a + 0.5, nodeRadius + 4)}`;
+          const lx = from.x + (nodeRadius + 46) * Math.cos(a);
+          const ly = from.y + (nodeRadius + 46) * Math.sin(a);
           return (
             <g key={`edge-${idx}`}>
               <path d={path} className="sd-edge sd-edge--self" markerEnd="url(#fsm-arrow-self)" />
-              <text x={from.x} y={from.y - nodeRadius - 26} textAnchor="middle" className="sd-label sd-label--self" fontSize={10}>
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" className="sd-label sd-label--self" fontSize={10}>
                 {e.label}
               </text>
             </g>
@@ -99,6 +100,10 @@ export const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
         const cx = midX - uy * curveOffset;
         const cy = midY + ux * curveOffset;
 
+        // Label sits just outside the middle of the curve, on the side it bends toward.
+        const labelX = 0.25 * sx + 0.5 * cx + 0.25 * ex - uy * 12;
+        const labelY = 0.25 * sy + 0.5 * cy + 0.25 * ey + ux * 12;
+
         return (
           <g key={`edge-${idx}`}>
             <path
@@ -107,9 +112,10 @@ export const StateDiagramSVG: React.FC<{ st: StateTable }> = ({ st }) => {
               markerEnd="url(#fsm-arrow)"
             />
             <text
-              x={cx}
-              y={cy - 4}
+              x={labelX}
+              y={labelY}
               textAnchor="middle"
+              dominantBaseline="central"
               className="sd-label"
               fontSize={10.5}
             >

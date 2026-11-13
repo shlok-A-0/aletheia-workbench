@@ -13,6 +13,7 @@ import {
   toCSV,
 } from '../../engine';
 import { PageHead } from '../deep/PageHead';
+import { outputLabel } from '../schematic/elkLayout';
 
 const DEFAULTS = {
   duty: 50,
@@ -152,6 +153,7 @@ export function TimingPage() {
     return initialNetlist ? 'current' : 'counter';
   });
   const [showInternal, setShowInternal] = useState(false);
+  const [variant, setVariant] = useState<'simplified' | 'original' | 'nand' | 'nor'>('simplified');
   const [duty, setDuty] = useState(DEFAULTS.duty);
   const [edge, setEdge] = useState<'rising' | 'falling'>(DEFAULTS.edge);
   const [gateDelay, setGateDelay] = useState(DEFAULTS.gateDelay);
@@ -172,7 +174,7 @@ export function TimingPage() {
     updateStoredWaveform(value);
   };
 
-  const currentNetlist = netlists.simplified ?? netlists.original;
+  const currentNetlist = netlists[variant] ?? netlists.simplified ?? netlists.original;
   const activeNetlist = useMemo(
     () => getPresetNetlist(preset, currentNetlist, designedNetlist),
     [preset, currentNetlist, designedNetlist]
@@ -234,13 +236,17 @@ export function TimingPage() {
       return;
     }
     try {
-      const result = simulateTimed(activeNetlist, stimulus, {
+      // Never feed the simulator events for inputs this circuit doesn't have.
+      const usable = stimulus.filter((item) => activeNetlist.inputs.includes(item.net));
+      const result = simulateTimed(activeNetlist, usable, {
         clockPeriod,
         duty: duty / 100,
         edge,
         defaultGateDelay: gateDelay,
         clkToQ,
         endTime: totalDuration,
+        // First active edge mid-way through the first period, away from t = 0 where inputs are still settling.
+        clockOffset: Math.floor(clockPeriod / 2),
       });
       setWaveform(result);
       playheadRef.current = 0;
@@ -267,7 +273,9 @@ export function TimingPage() {
 
   // Opening the page on the student's own combinational circuit: seed a stimulus once so there is something to see.
   useEffect(() => {
-    if (preset === 'current' && stimulus.length === 0 && activeNetlist) {
+    // A stimulus left over from another circuit (its nets are gone) is as good as none.
+    const stale = activeNetlist ? stimulus.some((item) => !activeNetlist.inputs.includes(item.net)) : false;
+    if (preset === 'current' && (stimulus.length === 0 || stale) && activeNetlist) {
       const seeded = presetStimulus('current', clockPeriod, activeNetlist);
       if (seeded.length > 0) {
         pendingSeed.current = true;
@@ -385,8 +393,14 @@ export function TimingPage() {
     ? Math.max(0, waveform.time.findLastIndex((time) => time <= playhead))
     : 0;
   const internalCount = waveform?.signals.filter((signal) => signal.group === 'internal').length ?? 0;
+  /** Generated net ids (or_3, and_1…) become the output's real name, F, wherever a student reads them. */
+  const shown = (name: string) => {
+    const i = activeNetlist?.outputs.indexOf(name) ?? -1;
+    return activeNetlist && i >= 0 ? outputLabel(name, i, activeNetlist.outputs.length) : name;
+  };
   const cursorValues = waveform?.signals.filter((signal) => (showInternal || signal.group !== 'internal') && (activeFlops.length > 0 || signal.group !== 'clock')).map((signal) => ({
     name: signal.name,
+    label: shown(signal.name),
     value: signalValue(signal, cursorIndex),
   })) ?? [];
 
@@ -400,7 +414,7 @@ export function TimingPage() {
             <span className="t-label">Circuit</span>
             <select aria-label="Preset" value={preset} onChange={(event) => handlePresetChange(event.target.value as Preset)}>
               <option value="current" disabled={!currentNetlist && !designedNetlist}>
-                {currentNetlist || designedNetlist ? `Your circuit · ${(currentNetlist ?? designedNetlist)?.name}` : 'Your circuit (generate one first)'}
+                {currentNetlist || designedNetlist ? (currentNetlist ? 'Your circuit' : `Your circuit · ${designedNetlist?.name}`) : 'Your circuit (generate one first)'}
               </option>
               <optgroup label="Examples">
                 <option value="counter">2-bit JK counter</option>
@@ -410,6 +424,21 @@ export function TimingPage() {
               </optgroup>
             </select>
           </label>
+          {preset === 'current' && netlists.simplified && (
+            <label className="dp-field">
+              <span className="t-label">Gate-level version</span>
+              <select aria-label="Gate-level version" value={variant} onChange={(event) => {
+                setVariant(event.target.value as typeof variant);
+                setPlaying(false);
+                setWaveform(null);
+              }}>
+                <option value="simplified">Simplified (minimal SOP)</option>
+                <option value="original" disabled={!netlists.original}>As typed (original)</option>
+                <option value="nand" disabled={!netlists.nand}>NAND-only</option>
+                <option value="nor" disabled={!netlists.nor}>NOR-only</option>
+              </select>
+            </label>
+          )}
         </div>
         <div className="timing-action-row">
           <button className="btn-primary" onClick={runSimulation}>Run simulation</button>
@@ -538,7 +567,7 @@ export function TimingPage() {
                   const lowY = row.y + 19;
                   const d = signal.values.map((value, index) => {
                     const x = 100 + (waveform.time[index] ?? 0) * 12;
-                    const y = value === 1 ? highY : lowY;
+                    const y = value === 1 ? highY : value === 0 ? lowY : (highY + lowY) / 2;
                     if (index === 0) return `M ${x} ${y}`;
                     return `H ${x} V ${y}`;
                   }).join(' ');
@@ -551,7 +580,7 @@ export function TimingPage() {
                       <rect x="0" y={row.y} width={svgWidth} height="26" className="timing-row-background"
                         onClick={isInput ? (event) => addInputChange(row.name, event) : undefined}
                         style={isInput ? { cursor: 'crosshair' } : undefined} />
-                      <text x="12" y={row.y + 17} className="timing-signal-name">{row.name}</text>
+                      <text x="12" y={row.y + 17} className="timing-signal-name">{shown(row.name)}</text>
                       <path d={d} className={`timing-signal-path ${row.group}`} pointerEvents="none" />
                       {stateNets[0] === row.name && stateChanges.map((change) => (
                         <text key={`${row.name}-${change.t}`} x={104 + change.t * 12} y={row.y - 1}
@@ -567,10 +596,27 @@ export function TimingPage() {
                       className="timing-edge-marker" />
                   );
                 })}
-                {waveform.events.filter((event) => event.label.startsWith('glitch:')).map((event, index) => {
-                  const x = 100 + event.t * 12;
-                  return <line key={`glitch-${event.t}-${index}`} x1={x} x2={x} y1="28" y2={svgHeight - 12}
-                    className="timing-glitch-marker" />;
+                {rowLayout.filter((row) => row.group === 'output' || row.group === 'internal').flatMap((row) => {
+                  // A glitch is a pulse on a gate/output wire no wider than two gate delays: the signal
+                  // changes and then changes straight back.
+                  const signal = waveform.signals.find((candidate) => candidate.name === row.name);
+                  if (!signal) return [];
+                  const pulses: { x0: number; x1: number; y: number }[] = [];
+                  for (let i = 1; i < signal.values.length - 1; i++) {
+                    if (signal.values[i] === signal.values[i - 1] || signal.values[i] === 'x') continue;
+                    const next = signal.values.findIndex((v, j) => j > i && v !== signal.values[i]);
+                    if (next === -1) continue;
+                    const width = waveform.time[next] - waveform.time[i];
+                    if (signal.values[next] === signal.values[i - 1] && width <= Math.max(2, gateDelay * 2)) {
+                      pulses.push({ x0: 100 + waveform.time[i] * 12, x1: 100 + waveform.time[next] * 12, y: row.y });
+                    }
+                  }
+                  return pulses.map((pulse, index) => (
+                    <g key={`glitch-${row.name}-${index}`} className="timing-glitch">
+                      <rect x={pulse.x0 - 2} y={pulse.y} width={Math.max(6, pulse.x1 - pulse.x0 + 4)} height="26" className="timing-glitch-pulse" />
+                      <text x={pulse.x0 - 2} y={pulse.y - 1} className="timing-glitch-label">glitch</text>
+                    </g>
+                  ));
                 })}
                 {timingViolations.map((violation, index) => {
                   const x = 100 + violation.t * 12;
@@ -588,8 +634,8 @@ export function TimingPage() {
                 onChange={(event) => setPlayhead(Number(event.target.value))} />
             </div>
             <div className="timing-value-strip" aria-live="polite">
-              {cursorValues.map(({ name, value }) => (
-                <span key={name} data-testid={`timing-value-${name}`}><b>{name}</b>={value}</span>
+              {cursorValues.map(({ name, label, value }) => (
+                <span key={name} data-testid={`timing-value-${name}`}><b>{label}</b>={value}</span>
               ))}
             </div>
           </>

@@ -409,7 +409,7 @@
 .sd-arrow--self { fill: var(--text-2); }
 .sd-edge { fill: none; stroke: var(--signal-ink); stroke-width: 1.5; }
 .sd-edge--self { stroke: var(--text-2); }
-.sd-label { fill: var(--text-1); font-family: var(--font-mono); font-size: 11px; }
+.sd-label { fill: var(--text-1); font-family: var(--font-mono); font-size: 11px; paint-order: stroke; stroke: var(--canvas); stroke-width: 4px; stroke-linejoin: round; }
 .sd-label--self { fill: var(--text-2); }
 .sd-node { fill: var(--inset); stroke: var(--line-strong); stroke-width: 2; }
 .sd-node.is-reset { fill: var(--signal-dim); stroke: var(--signal); }
@@ -451,3 +451,5 @@
 .shell-main .dp .p6-output-comparison .fault-output { display: flex; flex-direction: row; text-align: left; align-items: center; gap: var(--space-4); min-height: 0; }
 .shell-main .dp .p6-output-comparison .fault-output > * { margin: 0; }
 .dp-vectors span { color: inherit; opacity: 0.7; }
+.timing-glitch-pulse { fill: var(--error); opacity: 0.28; stroke: var(--error); stroke-width: 1; pointer-events: none; }
+.timing-glitch-label { fill: var(--error); font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; pointer-events: none; }

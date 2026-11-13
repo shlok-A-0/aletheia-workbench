@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChatPanel } from './ui/ChatPanel';
-import { IconMoon, IconSun } from './ui/workbench/icons';
 import { useStore } from './store';
 import { loadLastProject, saveLastProject } from './store/project';
 import './App.css';
@@ -27,20 +26,8 @@ const navItems: NavItem[] = [
   { path: '/help', label: 'Learn', title: 'Concept guide' },
 ];
 
-type Theme = 'light' | 'dark';
-
-function readTheme(): Theme {
-  try {
-    // Dark is the default; only an explicit saved choice of light overrides it.
-    return window.localStorage.getItem('ldam:theme') === 'light' ? 'light' : 'dark';
-  } catch {
-    return 'dark';
-  }
-}
-
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>(readTheme);
   const [persistenceError, setPersistenceError] = useState<string | null>(() => {
     try {
       const savedProject = loadLastProject();
@@ -78,20 +65,6 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    try {
-      window.localStorage.setItem('ldam:theme', next);
-    } catch (error) {
-      setPersistenceError(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   return (
     <div className="shell">
       <header className="shell-top">
@@ -108,15 +81,6 @@ export const App: React.FC = () => {
         </nav>
 
         <div className="shell-actions">
-          <button
-            type="button"
-            className="shell-icon-btn"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Theme: ${theme}`}
-          >
-            {theme === 'dark' ? <IconSun /> : <IconMoon />}
-          </button>
           <button
             type="button"
             className={`shell-ai ${chatOpen ? 'is-open' : ''}`}

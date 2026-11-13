@@ -24,7 +24,7 @@ describe('TimingPage', () => {
     render(<MemoryRouter><TimingPage /></MemoryRouter>);
     fireEvent.change(screen.getByLabelText('Preset'), { target: { value: 'detector' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run simulation' }));
-    fireEvent.change(screen.getByRole('slider', { name: /Cursor/ }), { target: { value: '80' } });
+    fireEvent.change(screen.getByRole('slider', { name: /Cursor/ }), { target: { value: '65' } });
     expect(screen.getByTestId('timing-value-Z')).toHaveTextContent('Z=1');
   });
 
@@ -36,5 +36,22 @@ describe('TimingPage', () => {
     expect(screen.getByTestId('timing-value-Q2')).toHaveTextContent('Q2=1');
     expect(screen.getByTestId('timing-value-Q1')).toHaveTextContent('Q1=1');
     expect(screen.getByTestId('timing-value-Q0')).toHaveTextContent('Q0=0');
+  });
+
+  it('lets the student view the NAND-only and NOR-only versions of their own circuit', async () => {
+    const { useStore } = await import('../../store');
+    const { analyzeSource, applyAnalysis } = await import('../../pipeline/analyze');
+    const out = analyzeSource({ mode: 'expr', text: "A'B + C", dontCares: '', numVars: 3 });
+    if (!out.ok) throw new Error('analysis failed');
+    applyAnalysis(out.analysis, null);
+    render(<MemoryRouter><TimingPage /></MemoryRouter>);
+    expect(screen.getByLabelText('Preset')).toHaveValue('current');
+    const version = screen.getByLabelText('Gate-level version');
+    fireEvent.change(version, { target: { value: 'nand' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run simulation' }));
+    expect(useStore.getState().netlists.nand).not.toBeNull();
+    // generated net ids never reach the student: the output is F
+    expect(screen.getAllByText('F').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^(and|or|nand|nor)_\d/i)).toBeNull();
   });
 });
