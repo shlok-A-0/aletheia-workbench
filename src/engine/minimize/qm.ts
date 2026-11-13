@@ -297,7 +297,7 @@ function solvePIChart(
     if (steps) {
       steps.push({
         title: 'Greedy Cover Fallback Applied',
-        detail: `PI chart exceeded 40 candidate rows; greedy heuristic selected minimal cover.`,
+        detail: `PI chart exceeded 40 candidate rows; greedy heuristic selected a near-minimal cover.`,
       });
     }
 

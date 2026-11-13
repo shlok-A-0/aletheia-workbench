@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChatPanel } from './ui/ChatPanel';
-import { useStore } from './store';
-import { loadLastProject, saveLastProject } from './store/project';
+import { restoreError, useStore } from './store';
+import { saveLastProject } from './store/project';
 import './App.css';
 import './ui/shell.css';
 import './ui/deep/deep.css';
@@ -28,15 +28,7 @@ const navItems: NavItem[] = [
 
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
-  const [persistenceError, setPersistenceError] = useState<string | null>(() => {
-    try {
-      const savedProject = loadLastProject();
-      if (savedProject) useStore.setState(savedProject);
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-  });
+  const [persistenceError, setPersistenceError] = useState<string | null>(restoreError);
   const location = useLocation();
 
   const currentNav = navItems.find((item) => item.path === location.pathname);

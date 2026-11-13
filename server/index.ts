@@ -30,6 +30,8 @@ export interface ServerOptions {
   /** Ceiling for all callers combined per window, so one warm instance bounds spend. */
   globalLimit?: number;
   limiter?: Limiter;
+  /** Trust X-Forwarded-For (only behind a proxy that overwrites it, e.g. Vercel). Defaults to TRUST_PROXY=1 or running on Vercel. */
+  trustProxy?: boolean;
 }
 
 interface ChatRequestBody {
@@ -226,6 +228,7 @@ export function createApp(options: ServerOptions = {}) {
   const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT ?? fileEnv.CHAT_GLOBAL_LIMIT);
   const globalLimit = options.globalLimit ?? (configuredGlobal > 0 ? configuredGlobal : DEFAULT_GLOBAL_LIMIT);
   const limiter = options.limiter ?? createLimiter();
+  const trustProxy = options.trustProxy ?? (process.env.TRUST_PROXY === '1' || Boolean(process.env.VERCEL));
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const origin = req.get('origin');
@@ -253,9 +256,9 @@ export function createApp(options: ServerOptions = {}) {
   app.use(express.json({ limit: '128kb', strict: true }));
 
   app.post('/api/chat', async (req: Request, res: Response) => {
-    // Behind Vercel/most proxies req.ip is the proxy, which would put every visitor in one bucket.
-    const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
-    const ip = forwarded || req.get('x-real-ip') || req.ip || req.socket.remoteAddress || 'unknown';
+    // The client-supplied header is only believable behind a proxy that overwrites it; otherwise use the socket.
+    const forwarded = trustProxy ? req.get('x-forwarded-for')?.split(',')[0]?.trim() : undefined;
+    const ip = forwarded || (trustProxy ? req.get('x-real-ip') : undefined) || req.socket.remoteAddress || 'unknown';
     if (!(await limiter.hit('global', globalLimit, rateWindowMs)) || !(await limiter.hit(`ip:${ip}`, rateLimit, rateWindowMs))) {
       res.status(429).json({ error: 'rate_limited' });
       return;

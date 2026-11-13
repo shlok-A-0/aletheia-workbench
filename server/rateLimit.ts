@@ -51,7 +51,9 @@ export function createUpstashLimiter(url: string, token: string, fallback: Limit
         const count = Number(data[0]?.result);
         if (!Number.isFinite(count)) throw new Error('upstash bad response');
         return count <= limit;
-      } catch {
+      } catch (error) {
+        // Fail open to a per-instance counter so a Redis outage does not take the tutor offline; limits are no longer shared.
+        console.warn('Shared rate limiter unavailable, using per-instance fallback:', error instanceof Error ? error.message : error);
         return fallback.hit(key, limit, windowMs);
       }
     },

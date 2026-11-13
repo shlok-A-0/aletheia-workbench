@@ -14,6 +14,9 @@ export type RootStore = InputSlice &
   TimingSlice &
   AnalysisSlice;
 
+/** Set when the saved session could not be restored; the store is the only place that reads storage. */
+export let restoreError: string | null = null;
+
 export const useStore = create<RootStore>()((...a) => {
   const [set, get] = a;
   let savedState: ReturnType<typeof loadLastProject> = null;
@@ -21,8 +24,8 @@ export const useStore = create<RootStore>()((...a) => {
     if (typeof window !== 'undefined' && window.localStorage) {
       savedState = loadLastProject();
     }
-  } catch {
-    // ignore
+  } catch (error) {
+    restoreError = error instanceof Error ? error.message : String(error);
   }
 
   const clearDerivedResults = {

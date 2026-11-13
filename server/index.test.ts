@@ -86,7 +86,7 @@ describe('POST /api/chat', () => {
 
   it('keys the limit on the forwarded client address, not the proxy', async () => {
     const adapter = mockAdapter();
-    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1 }, async (baseUrl) => {
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1, trustProxy: true }, async (baseUrl) => {
       const send = (ip: string) => fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
@@ -95,6 +95,19 @@ describe('POST /api/chat', () => {
       expect((await send('203.0.113.1')).status).toBe(200);
       expect((await send('203.0.113.1')).status).toBe(429);
       expect((await send('203.0.113.2')).status).toBe(200);
+    });
+  });
+
+  it('ignores a spoofed forwarded address unless the proxy is trusted', async () => {
+    const adapter = mockAdapter();
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1, trustProxy: false }, async (baseUrl) => {
+      const send = (ip: string) => fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+        body: JSON.stringify(validRequest),
+      });
+      expect((await send('203.0.113.1')).status).toBe(200);
+      expect((await send('203.0.113.2')).status).toBe(429);
     });
   });
 
