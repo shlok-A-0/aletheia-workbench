@@ -215,15 +215,15 @@ export function createApp(options: ServerOptions = {}) {
   const model = options.model ?? process.env.LLM_MODEL ?? fileEnv.LLM_MODEL ?? 'gemini-2.5-flash';
   const provider = options.provider ?? process.env.LLM_PROVIDER ?? fileEnv.LLM_PROVIDER ?? 'gemini';
   const allowedOrigins = new Set(
-    (options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+    (options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? fileEnv.CLIENT_ORIGIN ?? 'http://localhost:5173')
       .split(',')
       .map((o) => o.trim().replace(/\/$/, ''))
       .filter(Boolean),
   );
-  const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT);
+  const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT ?? fileEnv.CHAT_RATE_LIMIT);
   const rateLimit = options.rateLimit ?? (configuredRateLimit > 0 ? configuredRateLimit : DEFAULT_RATE_LIMIT);
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
-  const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT);
+  const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT ?? fileEnv.CHAT_GLOBAL_LIMIT);
   const globalLimit = options.globalLimit ?? (configuredGlobal > 0 ? configuredGlobal : DEFAULT_GLOBAL_LIMIT);
   const limiter = options.limiter ?? createLimiter();
   app.disable('x-powered-by');

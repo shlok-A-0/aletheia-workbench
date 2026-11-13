@@ -89,6 +89,7 @@ export function FaultsPage() {
 
   const discrepancy = useMemo(() => {
     if (!netlist || !fault) return null;
+    if (netlist.nodes.some((node) => node.kind === 'ff')) return { sequential: true as const };
     try {
       const inputMap = Object.fromEntries(inputs.map((net, index) => [net, normalizedVector[index]]));
       const good = simulateWithFault(netlist, { net: '', stuckAt: 0 }, inputMap);
@@ -160,7 +161,9 @@ export function FaultsPage() {
                 </label>
               ))}
             </div>
-            {discrepancy && ('error' in discrepancy
+            {discrepancy && ('sequential' in discrepancy
+              ? <p className="dp-note">This design has flip-flops, so a single-vector check would never clock them. Coverage below is measured over a clocked input sequence instead.</p>
+              : 'error' in discrepancy
               ? <p className="p6-error">{discrepancy.error}</p>
               : (
                 <div className="p6-output-comparison">

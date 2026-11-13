@@ -131,7 +131,7 @@ export function buildContext(state: RootStore, page: string): DesignContext {
     else if (context.power) delete context.power;
     else if (context.faults) delete context.faults;
     else if (context.circuit) delete context.circuit;
-    else if (context.function?.expr) context.function.expr = context.function.expr.slice(0, 100);
+    else if (context.function?.expr && context.function.expr.length > 100) context.function.expr = context.function.expr.slice(0, 100);
     else if (context.function) delete context.function;
     else break;
   }

@@ -25,8 +25,12 @@ function areExprEqual(a: Expr, b: Expr): boolean {
     case 'xor':
     case 'xnor': {
       if (b.t !== a.t || a.args.length !== b.args.length) return false;
-      for (let i = 0; i < a.args.length; i++) {
-        if (!areExprEqual(a.args[i], b.args[i])) return false;
+      // AND/OR/XOR/XNOR are commutative: match arguments as a multiset.
+      const used = new Array<boolean>(b.args.length).fill(false);
+      for (const arg of a.args) {
+        const hit = b.args.findIndex((other, j) => !used[j] && areExprEqual(arg, other));
+        if (hit === -1) return false;
+        used[hit] = true;
       }
       return true;
     }

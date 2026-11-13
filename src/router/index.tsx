@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
-import { PageErrorBoundary } from '../ui/PageErrorBoundary';
+import { RouteGuard } from '../ui/PageErrorBoundary';
 import { Workbench } from '../ui/workbench/Workbench';
 import {
   InputPage,
@@ -14,7 +14,7 @@ import {
   HelpPage,
 } from '../ui/pages';
 
-const guard = (node: ReactNode) => <PageErrorBoundary>{node}</PageErrorBoundary>;
+const guard = (node: ReactNode) => <RouteGuard>{node}</RouteGuard>;
 
 /**
  * `/` is the continuous workbench (define → table → simplify → circuit → verify).

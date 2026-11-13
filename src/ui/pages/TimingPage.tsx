@@ -306,8 +306,10 @@ export function TimingPage() {
     const scale = width / rect.width;
     const tick = Math.max(0, Math.min(totalDuration, Math.round((x * scale - 100) / 12)));
     const signal = waveform.signals.find((item) => item.name === net);
-    const index = waveform.time.findIndex((time) => time >= tick);
-    const value = signal ? signal.values[Math.max(0, index - 1)] ?? 0 : 0;
+    // The value drawn at the clicked tick: the last sample at or before it.
+    let index = 0;
+    waveform.time.forEach((time, i) => { if (time <= tick) index = i; });
+    const value = signal ? signal.values[index] ?? 0 : 0;
     const next = (1 - (value === 'x' ? 0 : value)) as 0 | 1;
     const remaining = stimulus.filter((item) => item.net !== net || item.t !== tick);
     setStimulus([...remaining, { t: tick, net, value: next }].sort((a, b) => a.t - b.t));
