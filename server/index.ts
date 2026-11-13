@@ -23,6 +23,7 @@ export interface ServerOptions {
   apiKey?: string;
   model?: string;
   provider?: string;
+  /** Allowed browser origin(s): a single origin or a comma-separated list. Same-origin requests are always allowed. */
   clientOrigin?: string;
   rateLimit?: number;
   rateWindowMs?: number;
@@ -213,7 +214,12 @@ export function createApp(options: ServerOptions = {}) {
   const apiKey = options.apiKey ?? process.env.LLM_API_KEY ?? fileEnv.LLM_API_KEY ?? '';
   const model = options.model ?? process.env.LLM_MODEL ?? fileEnv.LLM_MODEL ?? 'gemini-2.5-flash';
   const provider = options.provider ?? process.env.LLM_PROVIDER ?? fileEnv.LLM_PROVIDER ?? 'gemini';
-  const clientOrigin = options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+  const allowedOrigins = new Set(
+    (options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+      .split(',')
+      .map((o) => o.trim().replace(/\/$/, ''))
+      .filter(Boolean),
+  );
   const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT);
   const rateLimit = options.rateLimit ?? (configuredRateLimit > 0 ? configuredRateLimit : DEFAULT_RATE_LIMIT);
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
@@ -223,18 +229,23 @@ export function createApp(options: ServerOptions = {}) {
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const origin = req.get('origin');
-    if (origin === clientOrigin) {
-      res.setHeader('Access-Control-Allow-Origin', clientOrigin);
+    // Same-origin (the deployed site calling its own /api) always passes; otherwise the origin must be listed.
+    const sameOrigin = origin !== undefined && (() => {
+      try { return new URL(origin).host === req.get('host'); } catch { return false; }
+    })();
+    const allowed = origin !== undefined && (sameOrigin || allowedOrigins.has(origin));
+    if (origin && allowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     }
+    if (origin && !allowed) {
+      res.status(403).json({ error: 'origin_not_allowed' });
+      return;
+    }
     if (req.method === 'OPTIONS') {
-      if (origin && origin !== clientOrigin) {
-        res.status(403).json({ error: 'origin_not_allowed' });
-      } else {
-        res.sendStatus(204);
-      }
+      res.sendStatus(204);
       return;
     }
     next();

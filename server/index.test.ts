@@ -195,4 +195,22 @@ describe('POST /api/chat', () => {
       expect(denied.status).toBe(403);
     });
   });
+
+  it('accepts several configured origins and same-origin requests, and rejects other POSTs', async () => {
+    await withServer({ adapter: mockAdapter(), apiKey: 'test-secret', clientOrigin: 'http://localhost:5173, http://127.0.0.1:5173' }, async (baseUrl) => {
+      const loopback = await fetch(`${baseUrl}/api/chat`, { method: 'OPTIONS', headers: { origin: 'http://127.0.0.1:5173' } });
+      expect(loopback.status).toBe(204);
+      expect(loopback.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:5173');
+
+      const same = await fetch(`${baseUrl}/api/chat`, { method: 'OPTIONS', headers: { origin: baseUrl } });
+      expect(same.status).toBe(204);
+
+      const foreignPost = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { origin: 'https://attacker.invalid', 'content-type': 'application/json' },
+        body: JSON.stringify(validRequest),
+      });
+      expect(foreignPost.status).toBe(403);
+    });
+  });
 });

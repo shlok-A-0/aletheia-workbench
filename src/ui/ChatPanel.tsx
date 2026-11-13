@@ -60,7 +60,17 @@ export function ChatPanel({ open, page, pageLabel, onClose }: ChatPanelProps) {
           mode: requestedMode,
         }),
       });
-      const payload: unknown = await response.json();
+      // A missing or misrouted /api returns an HTML error page; never feed that to JSON.parse.
+      const isJson = (response.headers.get('content-type') ?? '').includes('json');
+      const payload: unknown = isJson ? await response.json().catch(() => null) : null;
+      if (payload === null && !response.ok) {
+        setOffline(true);
+        setMessages((current) => [...current, {
+          role: 'assistant',
+          content: 'The study assistant is offline right now. The rest of Aletheia is still available; try again when the assistant server is running.',
+        }]);
+        return;
+      }
       if (response.status === 503 && typeof payload === 'object' && payload !== null &&
         'error' in payload && payload.error === 'assistant_unavailable') {
         setOffline(true);
