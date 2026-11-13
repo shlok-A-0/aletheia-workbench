@@ -329,14 +329,31 @@ export function MsiBlockDiagram({
     const lineSpacing = numOutputs <= 8 ? 32 : 22;
     const boxH = Math.max(220, numOutputs * lineSpacing + 30);
 
-    // OR gate position on right
-    const orGateX = boxX + boxW + 140;
-    const orGateY = boxY + boxH / 2;
+    // Row of each decoder output line, and the (few) lines that really feed the OR gate.
+    const rowY = (m: number) => boxY + 20 + m * lineSpacing;
+    const used = minterms.map((m) => ({ m, y: rowY(m) }));
+    const busX0 = boxX + boxW + 24;
+    const orGateX = busX0 + used.length * 6 + 40;
     const orGateW = 70;
-    const orGateH = Math.min(boxH - 20, Math.max(60, minterms.length * 20));
+    const orGateH = Math.max(72, used.length * 16);
+    const meanY = used.length ? used.reduce((a, u) => a + u.y, 0) / used.length : boxY + boxH / 2;
+    const orTop = Math.min(Math.max(meanY - orGateH / 2, boxY), boxY + boxH - orGateH);
+    const pinY = (i: number) => orTop + ((i + 0.5) * orGateH) / used.length;
+    // The OR gate's concave back edge sits further right toward its middle.
+    const pinX = (y: number) => orGateX + 2 * ((y - orTop) / orGateH) * (1 - (y - orTop) / orGateH) * orGateW * 0.28;
+    // Elbow columns are ordered so that no two merging wires cross: lines that step down elbow later the
+    // higher they start, lines that step up elbow later the lower they start.
+    const goesDown = used.map((u, i) => pinY(i) > u.y);
+    const downs = goesDown.filter(Boolean).length;
+    let dSeen = 0;
+    let uSeen = 0;
+    const elbowX = used.map((_, i) => {
+      if (goesDown[i]) return busX0 + (downs - 1 - dSeen++) * 6;
+      return busX0 + uSeen++ * 6;
+    });
     const finalY = outputValues['Y'] ?? (minterms.includes(currentAddr) ? 1 : 0);
 
-    const svgW = 740;
+    const svgW = 780;
     const svgH = boxH + 60;
 
     return (
@@ -400,7 +417,7 @@ export function MsiBlockDiagram({
                 className="msi-addr-group"
               >
                 <line
-                  x1={40}
+                  x1={84}
                   y1={y}
                   x2={boxX}
                   y2={y}
@@ -409,7 +426,7 @@ export function MsiBlockDiagram({
                   markerEnd={bit === 1 ? 'url(#arrow)' : 'url(#arrow-dim)'}
                 />
                 <text
-                  x={30}
+                  x={76}
                   y={y + 5}
                   textAnchor="end"
                   fill="var(--text-1)"
@@ -423,83 +440,70 @@ export function MsiBlockDiagram({
             );
           })}
 
-          {/* Decoder Outputs on Right */}
+          {/* Decoder outputs: every line is labelled inside the box; only minterm lines leave it */}
           {Array.from({ length: numOutputs }).map((_, m) => {
-            const y = boxY + 20 + m * lineSpacing;
+            const y = rowY(m);
             const isMinterm = minterms.includes(m);
             const isActive = m === currentAddr;
-
-            // Route wire to OR gate if active minterm
-            const wireEnd = isMinterm ? orGateX : boxX + boxW + 40;
-            const strokeColor = isActive ? 'var(--signal-ink)' : isMinterm ? 'var(--logic-x)' : 'var(--line)';
-
+            const ink = isActive ? 'var(--signal-ink)' : isMinterm ? 'var(--logic-x)' : 'var(--text-3)';
             return (
               <g key={m}>
-                <line
-                  x1={boxX + boxW}
-                  y1={y}
-                  x2={wireEnd}
-                  y2={y}
-                  stroke={strokeColor}
-                  strokeWidth={isActive ? 2.5 : isMinterm ? 1.5 : 1}
-                  markerEnd={isMinterm ? undefined : 'url(#arrow-dim)'}
-                />
-                <text
-                  x={boxX + boxW + 12}
-                  y={y + 4}
-                  fill={isActive ? 'var(--signal-ink)' : isMinterm ? 'var(--logic-x)' : 'var(--text-3)'}
-                  fontSize="11"
-                  fontWeight="600"
-                  fontFamily="monospace"
-                >
+                <text x={boxX + boxW - 10} y={y + 4} textAnchor="end" fill={ink} fontSize="11" fontWeight="600" fontFamily="monospace">
                   Y{m}
                 </text>
+                {!isMinterm && (
+                  <line x1={boxX + boxW} y1={y} x2={boxX + boxW + 14} y2={y} stroke="var(--line)" strokeWidth={1} />
+                )}
               </g>
             );
           })}
 
-          {/* External OR Gate collecting minterms */}
-          {minterms.length > 0 && (
-            <g transform={`translate(${orGateX}, ${orGateY - orGateH / 2})`}>
-              {/* OR gate body */}
+          {/* Minterm lines merge into the OR gate, one pin each */}
+          {used.map((u, i) => {
+            const isActive = u.m === currentAddr;
+            const py = pinY(i);
+            const x0 = boxX + boxW;
+            const ex = elbowX[i];
+            const endX = pinX(py);
+            return (
+              <path
+                key={u.m}
+                d={`M${x0},${u.y} H${ex} V${py} H${endX}`}
+                fill="none"
+                stroke={isActive ? 'var(--signal-ink)' : 'var(--logic-x)'}
+                strokeWidth={isActive ? 2.5 : 1.5}
+                strokeLinejoin="round"
+              />
+            );
+          })}
+
+          {/* External OR gate collecting minterms */}
+          {used.length > 0 && (
+            <g transform={`translate(${orGateX}, ${orTop})`}>
               <path
                 d={`M0,0 Q${orGateW * 0.55},0 ${orGateW},${orGateH / 2} Q${orGateW * 0.55},${orGateH} 0,${orGateH} Q${orGateW * 0.28},${orGateH / 2} 0,0 Z`}
                 fill="var(--surface)"
                 stroke={finalY === 1 ? 'var(--signal-ink)' : 'var(--text-2)'}
                 strokeWidth={2}
               />
-              <text
-                x={orGateW * 0.45}
-                y={orGateH / 2 + 5}
-                textAnchor="middle"
-                fill="var(--text-1)"
-                fontSize="12"
-                fontWeight="700"
-              >
+              <text x={orGateW * 0.5} y={orGateH / 2 + 5} textAnchor="middle" fill="var(--text-1)" fontSize="12" fontWeight="700">
                 OR
               </text>
-              {/* Output F */}
               <line
                 x1={orGateW}
                 y1={orGateH / 2}
-                x2={orGateW + 60}
+                x2={orGateW + 50}
                 y2={orGateH / 2}
                 stroke={finalY === 1 ? 'var(--signal-ink)' : 'var(--line-strong)'}
                 strokeWidth={3}
                 markerEnd={finalY === 1 ? 'url(#arrow)' : 'url(#arrow-dim)'}
               />
-              <text
-                x={orGateW + 70}
-                y={orGateH / 2 - 4}
-                fill="var(--text-1)"
-                fontSize="13"
-                fontWeight="700"
-              >
-                F = Σm({minterms.join(',')})
+              <text x={orGateW + 58} y={orGateH / 2 - 6} fill="var(--text-1)" fontSize="13" fontWeight="700">
+                F
               </text>
               <text
-                x={orGateW + 70}
-                y={orGateH / 2 + 18}
+                x={orGateW + 58}
+                y={orGateH / 2 + 16}
                 fill={finalY === 1 ? 'var(--signal-ink)' : 'var(--text-2)'}
                 fontSize="18"
                 fontWeight="800"

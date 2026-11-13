@@ -28,7 +28,7 @@ export function createBlockNameGenerator(): BlockNameGenerator {
  * Inputs: Select lines (S(k-1)..S0), followed by Data lines (D0..D(2^k - 1)).
  * Output: Y.
  */
-export function mux(selectBits: 1 | 2 | 3, names = createBlockNameGenerator()): Netlist {
+export function mux(selectBits: 1 | 2 | 3 | 4, names = createBlockNameGenerator()): Netlist {
   const bNet = (p = 'bn') => names.net(p);
   const bGateId = (t = 'g') => names.gate(t);
   const numSelect = selectBits;
@@ -649,8 +649,8 @@ export function functionWithMux(
   }
 
   const k = selectVars.length;
-  if (k < 1 || k > 3) {
-    throw new Error(`functionWithMux supports 1 to 3 select variables, got ${k}`);
+  if (k < 1 || k > 4) {
+    throw new Error(`functionWithMux supports 1 to 4 select variables, got ${k}`);
   }
 
   const numDataLines = 1 << k;
@@ -661,7 +661,7 @@ export function functionWithMux(
     detail: `Selected ${selectVars.join(', ')} as MUX select lines (${k} lines → ${numDataLines}:1 MUX). Residual variables: {${residualVars.join(', ') || 'none'}}.`,
   });
 
-  const muxCircuit = mux(k as 1 | 2 | 3, names);
+  const muxCircuit = mux(k as 1 | 2 | 3 | 4, names);
   const nodes: Node[] = [...muxCircuit.nodes];
 
   // Inverter map for residual variables

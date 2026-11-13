@@ -306,9 +306,6 @@ function getElk(): Promise<ELK> {
   return elkInstance;
 }
 
-const same = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
-
 /** One dot at every point where a net splits (see wiring.ts for the rules). */
 export function findJunctions(edges: SchematicEdge[]): Junction[] {
   return findJunctionDots(edges.map((e) => ({ id: e.id, net: e.net, points: e.points })));
