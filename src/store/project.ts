@@ -43,6 +43,39 @@ function isNullableRecord(value: unknown): boolean {
   return value === null || isRecord(value);
 }
 
+const MAX_ROWS = 1 << 8;
+const MAX_NODES = 2_000;
+
+function isRecordArray(value: unknown, max: number): boolean {
+  return Array.isArray(value) && value.length <= max && value.every(isRecord);
+}
+
+function isValidNetlist(value: unknown): boolean {
+  if (value === null) return true;
+  return isRecord(value) &&
+    isRecordArray(value.nodes, MAX_NODES) &&
+    Array.isArray(value.inputs) && value.inputs.every((net) => typeof net === 'string') &&
+    Array.isArray(value.outputs) && value.outputs.every((net) => typeof net === 'string');
+}
+
+function isValidTruthTable(value: unknown): boolean {
+  if (value === null) return true;
+  return isRecord(value) &&
+    Array.isArray(value.vars) && value.vars.length <= 8 && value.vars.every((v) => typeof v === 'string') &&
+    isRecordArray(value.rows, MAX_ROWS) &&
+    (value.rows as Record<string, unknown>[]).every((row) => typeof row.index === 'number' && Array.isArray(row.inputs));
+}
+
+function isValidWaveform(value: unknown): boolean {
+  if (value === null) return true;
+  return isRecord(value) && Array.isArray(value.time) && value.time.length <= 20_000 && isRecordArray(value.signals, 500);
+}
+
+function isValidStimulus(value: unknown): boolean {
+  return Array.isArray(value) && value.length <= 5_000 && value.every((item) =>
+    isRecord(item) && typeof item.t === 'number' && typeof item.net === 'string' && (item.value === 0 || item.value === 1));
+}
+
 function validateProjectState(value: unknown): value is ProjectState {
   if (!isRecord(value)) return false;
   const state = value;
@@ -65,12 +98,17 @@ function validateProjectState(value: unknown): value is ProjectState {
     !state.excitationEquations.every((entry) => typeof entry === 'string') ||
     !Array.isArray(state.outputEquations) ||
     !state.outputEquations.every((entry) => typeof entry === 'string') ||
-    !Array.isArray(state.stimulus) ||
+    !isValidStimulus(state.stimulus) ||
+    !Number.isFinite(state.clockPeriod) || (state.clockPeriod as number) <= 0 ||
+    !Number.isFinite(state.totalDuration) || (state.totalDuration as number) <= 0 || (state.totalDuration as number) > 100_000 ||
+    !isValidTruthTable(state.truthTable) ||
+    !isValidWaveform(state.waveform) ||
+    !isValidNetlist(state.designedNetlist) ||
     typeof state.clockPeriod !== 'number' ||
     typeof state.totalDuration !== 'number' ||
     !['original', 'simplified', 'nand', 'nor'].every((key) =>
       netlists[key] === null ||
-      (isRecord(netlists[key]) && Array.isArray(netlists[key].nodes))
+      isValidNetlist(netlists[key])
     ) ||
     !isNullableRecord(state.truthTable) ||
     !isNullableRecord(state.parsedExpr) ||
@@ -120,7 +158,11 @@ export function createProjectFile(state: RootStore): string {
     powerReport: state.powerReport,
     faultReport: state.faultReport,
   };
-  return JSON.stringify({ format: 'ldam-project', version: PROJECT_VERSION, state: serializableState }, null, 2);
+  const text = JSON.stringify({ format: 'ldam-project', version: PROJECT_VERSION, state: serializableState }, null, 2);
+  if (text.length > MAX_PROJECT_SIZE) {
+    throw new Error(`Project is larger than the ${MAX_PROJECT_SIZE.toLocaleString()} character limit and cannot be saved.`);
+  }
+  return text;
 }
 
 export function parseProjectFile(contents: string): ProjectState {

@@ -21,7 +21,7 @@ The assistant uses the Gemini API from the local Express server. Keep the API ke
 2. Set `LLM_API_KEY` in `server/.env`.
 3. In one terminal, run `pnpm server:dev`; in another, run `pnpm dev`.
 
-The model defaults to `gemini-2.5-flash`. Optional settings include `LLM_PROVIDER`, `LLM_MODEL`, `CLIENT_ORIGIN`, and `CHAT_RATE_LIMIT`.
+The model defaults to `gemini-2.5-flash`. Optional settings include `LLM_PROVIDER`, `LLM_MODEL`, `CLIENT_ORIGIN`, and `CHAT_RATE_LIMIT`. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` to share the rate limit across Vercel instances; without them the limit is per instance.
 
 ## Main features
 

@@ -28,7 +28,7 @@ export function createBlockNameGenerator(): BlockNameGenerator {
  * Inputs: Select lines (S(k-1)..S0), followed by Data lines (D0..D(2^k - 1)).
  * Output: Y.
  */
-export function mux(selectBits: 1 | 2 | 3, names = createBlockNameGenerator()): Netlist {
+export function mux(selectBits: 1 | 2 | 3 | 4, names = createBlockNameGenerator()): Netlist {
   const bNet = (p = 'bn') => names.net(p);
   const bGateId = (t = 'g') => names.gate(t);
   const numSelect = selectBits;
@@ -649,8 +649,8 @@ export function functionWithMux(
   }
 
   const k = selectVars.length;
-  if (k < 1 || k > 3) {
-    throw new Error(`functionWithMux supports 1 to 3 select variables, got ${k}`);
+  if (k < 1 || k > 4) {
+    throw new Error(`functionWithMux supports 1 to 4 select variables, got ${k}`);
   }
 
   const numDataLines = 1 << k;
@@ -661,7 +661,7 @@ export function functionWithMux(
     detail: `Selected ${selectVars.join(', ')} as MUX select lines (${k} lines → ${numDataLines}:1 MUX). Residual variables: {${residualVars.join(', ') || 'none'}}.`,
   });
 
-  const muxCircuit = mux(k as 1 | 2 | 3, names);
+  const muxCircuit = mux(k as 1 | 2 | 3 | 4, names);
   const nodes: Node[] = [...muxCircuit.nodes];
 
   // Inverter map for residual variables
@@ -792,6 +792,162 @@ export function functionWithMux(
       outputs: ['Y'],
       nodes: remappedNodes,
     },
+    steps,
+  };
+}
+
+/**
+ * Realizes one or more functions of the same variables with ONE shared demultiplexer.
+ * The demux data input D is tied to 1 and the variables drive its select lines, so line Yi
+ * carries 1 only for input combination i. Each function then ORs the lines of its own minterms,
+ * so extra outputs cost one OR gate each instead of a whole extra decoder.
+ */
+export function functionsWithDemux(
+  tts: TruthTable[],
+  outputNames: string[] = [],
+  names = createBlockNameGenerator()
+): { netlist: Netlist; steps: Step[] } {
+  if (tts.length === 0) throw new Error('functionsWithDemux needs at least one truth table.');
+  const allVars = tts[0].vars;
+  const n = allVars.length;
+  const numLines = 1 << n;
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
+  const outs = tts.map((_, i) => outputNames[i] ?? (tts.length === 1 ? 'Y' : `Y${i}`));
+
+  const steps: Step[] = [
+    {
+      title: 'Demultiplexer',
+      detail: `One 1-to-${numLines} demux: data input D is tied to 1 and {${allVars.join(', ')}} drive the select lines, so line Yi is 1 only for input combination i.`,
+    },
+  ];
+
+  const nodes: Node[] = [];
+  const d = bNet('demux_D');
+  nodes.push({ kind: 'const', id: bGateId('D1'), value: 1, output: d });
+  const notVars: string[] = [];
+  for (const v of allVars) {
+    const inv = bNet(`not_${v}`);
+    nodes.push({ kind: 'gate', id: bGateId('NOT'), type: 'NOT', inputs: [v], output: inv });
+    notVars.push(inv);
+  }
+  const lines: string[] = [];
+  for (let o = 0; o < numLines; o++) {
+    const line = bNet(`dmx_y${o}`);
+    lines.push(line);
+    const ins = [d];
+    for (let bit = 0; bit < n; bit++) {
+      ins.push(((o >> (n - 1 - bit)) & 1) === 1 ? allVars[bit] : notVars[bit]);
+    }
+    nodes.push({ kind: 'gate', id: bGateId('AND'), type: 'AND', inputs: ins, output: line });
+  }
+
+  tts.forEach((tt, j) => {
+    const minterms = tt.rows.filter((r) => r.out === 1).map((r) => r.index);
+    const out = outs[j];
+    steps.push({
+      title: `Output ${out}`,
+      detail: minterms.length === 0
+        ? `${out} is identically 0, tied to constant 0.`
+        : minterms.length === numLines
+          ? `${out} is identically 1, tied to constant 1.`
+          : `${out} = OR of lines Y${minterms.join(', Y')}  (Σm(${minterms.join(', ')})).`,
+    });
+    if (minterms.length === 0) {
+      nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: out });
+    } else if (minterms.length === numLines) {
+      nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: out });
+    } else if (minterms.length === 1) {
+      nodes.push({ kind: 'gate', id: bGateId('BUF'), type: 'BUF', inputs: [lines[minterms[0]]], output: out });
+    } else {
+      nodes.push({ kind: 'gate', id: bGateId('OR'), type: 'OR', inputs: minterms.map((m) => lines[m]), output: out });
+    }
+  });
+
+  return {
+    netlist: { name: `func_demux_1to${numLines}`, inputs: [...allVars], outputs: outs, nodes },
+    steps,
+  };
+}
+
+/**
+ * Realizes a function with an active-LOW n-to-2^n decoder (74138 style) plus one gate.
+ * Active-low outputs are 0 for the selected line, so:
+ *   F = NAND(outputs of the minterms where F=1), or
+ *   F = AND(outputs of the minterms where F=0).
+ * The side with fewer terms is used, which is what a designer wiring a real 74138 would do.
+ */
+export function functionWithDecoderNand(
+  tt: TruthTable,
+  names = createBlockNameGenerator()
+): { netlist: Netlist; steps: Step[] } {
+  const bNet = (p = 'bn') => names.net(p);
+  const bGateId = (t = 'g') => names.gate(t);
+  const allVars = tt.vars;
+  const n = allVars.length;
+  const numOutputs = 1 << n;
+  const ones = tt.rows.filter((r) => r.out === 1).map((r) => r.index);
+  const zeros = tt.rows.filter((r) => r.out !== 1).map((r) => r.index);
+  const useNand = ones.length <= zeros.length;
+  const chosen = useNand ? ones : zeros;
+
+  const steps: Step[] = [
+    {
+      title: 'Active-low decoder',
+      detail: `Variables {${allVars.join(', ')}} drive an active-low ${n}-to-${numOutputs} decoder: the selected output goes to 0, all others stay 1.`,
+    },
+    {
+      title: 'Choose the cheaper side',
+      detail: useNand
+        ? `F=1 on ${ones.length} row(s) and F=0 on ${zeros.length}. Use one NAND over the F=1 outputs: Σm(${ones.join(', ')}).`
+        : `F=0 on ${zeros.length} row(s) and F=1 on ${ones.length}. Use one AND over the F=0 outputs: F is 1 unless a zero row is selected, ΠM(${zeros.join(', ')}).`,
+    },
+  ];
+
+  const nodes: Node[] = [];
+  const notVars: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const inv = bNet(`not_${allVars[i]}`);
+    nodes.push({ kind: 'gate', id: bGateId('NOT'), type: 'NOT', inputs: [allVars[i]], output: inv });
+    notVars.push(inv);
+  }
+  const lines: string[] = [];
+  for (let o = 0; o < numOutputs; o++) {
+    const out = bNet(`dec_n${o}`);
+    lines.push(out);
+    const ins: string[] = [];
+    for (let bit = 0; bit < n; bit++) {
+      ins.push(((o >> (n - 1 - bit)) & 1) === 1 ? allVars[bit] : notVars[bit]);
+    }
+    nodes.push({ kind: 'gate', id: bGateId('NAND'), type: 'NAND', inputs: ins.length > 1 ? ins : [ins[0], ins[0]], output: out });
+  }
+
+  const y = 'Y';
+  if (ones.length === 0) {
+    nodes.push({ kind: 'const', id: bGateId('c0'), value: 0, output: y });
+  } else if (zeros.length === 0) {
+    nodes.push({ kind: 'const', id: bGateId('c1'), value: 1, output: y });
+  } else if (chosen.length === 1) {
+    // One active-low line: F=1 rows -> invert it; F=0 rows -> pass it through.
+    nodes.push({
+      kind: 'gate',
+      id: bGateId(useNand ? 'NOT' : 'BUF'),
+      type: useNand ? 'NOT' : 'BUF',
+      inputs: [lines[chosen[0]]],
+      output: y,
+    });
+  } else {
+    nodes.push({
+      kind: 'gate',
+      id: bGateId(useNand ? 'NAND' : 'AND'),
+      type: useNand ? 'NAND' : 'AND',
+      inputs: chosen.map((m) => lines[m]),
+      output: y,
+    });
+  }
+
+  return {
+    netlist: { name: `func_decoder_nand_${n}to${numOutputs}`, inputs: [...allVars], outputs: [y], nodes },
     steps,
   };
 }

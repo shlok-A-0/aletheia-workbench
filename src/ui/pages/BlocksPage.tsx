@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { useStore } from '../../store';
-import { evaluate } from '../../engine/circuit/simulate';
+import { evaluate, truthTableOfNetlist } from '../../engine/circuit/simulate';
 import {
   mux,
   demux,
@@ -10,11 +10,14 @@ import {
   bcdTo7Seg,
   functionWithMux,
   functionWithDecoder,
+  functionWithDecoderNand,
+  functionsWithDemux,
 } from '../../engine/circuit/blocks';
 import { truthTableFromMinterms } from '../../engine/boolean/truth-table';
 import type { Netlist, TruthTable } from '../../engine/types';
 import { Link } from 'react-router-dom';
 import { PageHead } from '../deep/PageHead';
+import { DemuxDiagram, DEMUX_DIAGRAM_MAX_VARS } from '../blocks/DemuxDiagram';
 import { MsiBlockDiagram } from '../blocks/MsiBlockDiagram';
 
 const SchematicView = lazy(() => import('../schematic/SchematicView'));
@@ -43,28 +46,50 @@ const GALLERY_BLOCKS: GalleryBlockDef[] = [
 
 const GALLERY_GROUPS = ['Select', 'Decode'] as const;
 
-const PRESET_FUNCTIONS: { label: string; vars: string[]; minterms: number[] }[] = [
-  { label: 'Σm(1,3,6,7)', vars: ['A', 'B', 'C'], minterms: [1, 3, 6, 7] },
-  { label: 'Majority (AB+BC+AC)', vars: ['A', 'B', 'C'], minterms: [3, 5, 6, 7] },
-  { label: 'Odd parity (A ^ B ^ C)', vars: ['A', 'B', 'C'], minterms: [1, 2, 4, 7] },
-  { label: '2-var XOR (A ^ B)', vars: ['A', 'B'], minterms: [1, 2] },
-];
+/** Real 7400-series multiplexers, by number of select lines. */
+const MUX_ICS: Record<number, string> = {
+  1: '74157 · quad 2:1',
+  2: '74153 · dual 4:1',
+  3: '74151 · 8:1',
+  4: '74150 · 16:1',
+};
+
+/** Real decoder/demultiplexer ICs, by number of address lines. */
+const DECODER_ICS: Record<number, string> = {
+  2: '74139 · dual 2-to-4',
+  3: '74138 · 3-to-8',
+  4: '74154 · 4-to-16',
+};
+
+/** All k-element subsets of `items`, in order. */
+function combinations<T>(items: T[], k: number): T[][] {
+  if (k === 0) return [[]];
+  if (items.length < k) return [];
+  const [head, ...rest] = items;
+  return [...combinations(rest, k - 1).map((c) => [head, ...c]), ...combinations(rest, k)];
+}
 
 const DEFAULT_SAMPLE_TT: TruthTable = truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]);
 
 const NO_OUTPUTS: string[] = [];
 
+type ImplTarget = 'mux' | 'decoder' | 'decoder-nand' | 'demux';
+
 export function BlocksPage() {
   const storeTT = useStore((state) => state.truthTable);
   // Select the stable array itself: a fresh `?? []` each render would loop the store subscription.
-  const workbenchOutputs = useStore((state) => state.netlists.simplified?.outputs) ?? NO_OUTPUTS;
+  const workbenchNetlist = useStore((state) => state.netlists.simplified);
+  const workbenchOutputs = workbenchNetlist?.outputs ?? NO_OUTPUTS;
+  const [outputIdx, setOutputIdx] = useState(0);
   const [pageMode, setPageMode] = useState<'implement' | 'gallery'>('implement');
-  const [presetTT, setPresetTT] = useState<TruthTable | null>(null);
-  const [presetLabel, setPresetLabel] = useState('');
 
-  // Implementation settings
-  const [implTarget, setImplTarget] = useState<'mux' | 'decoder'>('mux');
-  const [selectedMuxConfigIdx, setSelectedMuxConfigIdx] = useState(0);
+  // Implementation settings: block family, decoder output style, MUX size (select lines) and which variables select.
+  const [blockType, setBlockType] = useState<'mux' | 'decoder' | 'demux'>('mux');
+  const [decoderStyle, setDecoderStyle] = useState<'or' | 'nand'>('or');
+  const [muxK, setMuxK] = useState(0); // 0 = largest size that fits
+  const [muxCombo, setMuxCombo] = useState(0);
+  const implTarget: ImplTarget =
+    blockType === 'decoder' ? (decoderStyle === 'nand' ? 'decoder-nand' : 'decoder') : blockType;
 
   // Gallery settings
   const [galleryKey, setGalleryKey] = useState('mux2');
@@ -75,80 +100,41 @@ export function BlocksPage() {
   // Live input bits for simulation
   const [bits, setBits] = useState<Record<string, 0 | 1>>({});
 
-  const activeTT = presetTT ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
-  const isSample = !presetTT && (!storeTT || storeTT.vars.length < 1);
-
-  // Clear preset override whenever the workbench synthesizes a new truth table
-  const [prevStoreTT, setPrevStoreTT] = useState(storeTT);
-  if (storeTT !== prevStoreTT) {
-    setPrevStoreTT(storeTT);
-    setPresetTT(null);
-  }
-
-  // Available MUX configurations based on truth table variables
-  const muxConfigs = useMemo(() => {
-    const vars = activeTT.vars;
-    const n = vars.length;
-    const configs: { label: string; desc: string; selectVars: string[] }[] = [];
-
-    if (n === 1) {
-      configs.push({
-        label: '2:1 MUX (Full Select)',
-        desc: `Select = ${vars[0]}, inputs tied to constants 0 or 1.`,
-        selectVars: [vars[0]],
-      });
-    } else if (n === 2) {
-      configs.push({
-        label: '4:1 MUX (Full Select)',
-        desc: `Select = {${vars.join(', ')}}, inputs tied to 0 or 1.`,
-        selectVars: [...vars],
-      });
-      configs.push({
-        label: '2:1 MUX (Shannon Expansion)',
-        desc: `Select = ${vars[0]}, Data lines driven by ${vars[1]} / ${vars[1]}'.`,
-        selectVars: [vars[0]],
-      });
-    } else if (n === 3) {
-      configs.push({
-        label: '8:1 MUX (Full Select)',
-        desc: `Select = {${vars.join(', ')}}, inputs tied to 0 or 1.`,
-        selectVars: [...vars],
-      });
-      configs.push({
-        label: `4:1 MUX (Select: ${vars[0]}, ${vars[1]})`,
-        desc: `Shannon expansion: residual variable is ${vars[2]}.`,
-        selectVars: [vars[0], vars[1]],
-      });
-      configs.push({
-        label: `4:1 MUX (Select: ${vars[1]}, ${vars[2]})`,
-        desc: `Shannon expansion: residual variable is ${vars[0]}.`,
-        selectVars: [vars[1], vars[2]],
-      });
-      configs.push({
-        label: `2:1 MUX (Select: ${vars[0]})`,
-        desc: `Shannon expansion: residual variables are ${vars[1]}, ${vars[2]}.`,
-        selectVars: [vars[0]],
-      });
-    } else {
-      // 4+ variables
-      configs.push({
-        label: `8:1 MUX (Select: ${vars.slice(0, 3).join(', ')})`,
-        desc: `Shannon expansion with 3 select lines.`,
-        selectVars: vars.slice(0, 3),
-      });
-      configs.push({
-        label: `4:1 MUX (Select: ${vars.slice(0, 2).join(', ')})`,
-        desc: `Shannon expansion with 2 select lines.`,
-        selectVars: vars.slice(0, 2),
-      });
+  // One truth table per output of the workbench design, so every output can be realized, not just the first.
+  const workbenchTTs = useMemo(() => {
+    if (!storeTT || storeTT.vars.length < 1 || !workbenchNetlist || workbenchOutputs.length < 2) return null;
+    try {
+      return workbenchOutputs.map((_, i) => truthTableOfNetlist(workbenchNetlist, storeTT.vars, i));
+    } catch {
+      return null;
     }
+  }, [storeTT, workbenchNetlist, workbenchOutputs]);
+  const safeOutputIdx = Math.min(outputIdx, Math.max(0, (workbenchTTs?.length ?? 1) - 1));
 
-    return configs;
-  }, [activeTT]);
+  const activeTT = workbenchTTs?.[safeOutputIdx] ?? (storeTT && storeTT.vars.length >= 1 ? storeTT : DEFAULT_SAMPLE_TT);
+  const isSample = !storeTT || storeTT.vars.length < 1;
 
-  // Safe index
-  const safeMuxIdx = Math.min(selectedMuxConfigIdx, Math.max(0, muxConfigs.length - 1));
-  const activeMuxConfig = muxConfigs[safeMuxIdx] ?? muxConfigs[0];
+  // MUX sizes: one per real IC, from 2:1 up to 16:1, never wider than the function has variables.
+  const muxSizes = useMemo(
+    () => Array.from({ length: Math.min(4, activeTT.vars.length) }, (_, i) => i + 1),
+    [activeTT],
+  );
+  const safeK = muxK >= 1 && muxK <= muxSizes.length ? muxK : muxSizes[muxSizes.length - 1];
+  // Which variables drive the select lines (only a choice when the MUX is smaller than the function).
+  const muxCombos = useMemo(() => combinations(activeTT.vars, safeK), [activeTT, safeK]);
+  const safeCombo = Math.min(muxCombo, Math.max(0, muxCombos.length - 1));
+  const activeMuxConfig = useMemo(() => {
+    const selectVars = muxCombos[safeCombo] ?? activeTT.vars.slice(0, safeK);
+    const residual = activeTT.vars.filter((v) => !selectVars.includes(v));
+    return {
+      label: `${1 << safeK}:1 MUX`,
+      selectVars,
+      desc: residual.length === 0
+        ? `Select = {${selectVars.join(', ')}}; every data input is tied to 0 or 1 straight from the truth table.`
+        : `Shannon expansion: select = {${selectVars.join(', ')}}; each data input is a function of {${residual.join(', ')}}.`,
+    };
+  }, [muxCombos, safeCombo, activeTT, safeK]);
+  const safeMuxIdx = `${safeK}-${safeCombo}`;
 
   // Synthesize or retrieve netlist depending on pageMode
   const { netlist, steps, label, desc } = useMemo(() => {
@@ -160,6 +146,25 @@ export function BlocksPage() {
           steps: st,
           label: `${activeMuxConfig.label} Realization`,
           desc: activeMuxConfig.desc,
+        };
+      } else if (implTarget === 'demux') {
+        const tts = workbenchTTs ?? [activeTT];
+        const { netlist: nl, steps: st } = functionsWithDemux(tts, workbenchTTs ? [...workbenchOutputs] : []);
+        return {
+          netlist: nl,
+          steps: st,
+          label: `1-to-${1 << activeTT.vars.length} Demultiplexer + OR Realization`,
+          desc: tts.length > 1
+            ? `One shared demux (D = 1) feeds an OR gate for each of the ${tts.length} outputs.`
+            : `Demux with D tied to 1 routes a 1 to the selected line; ORing the minterm lines gives F(${activeTT.vars.join(', ')}).`,
+        };
+      } else if (implTarget === 'decoder-nand') {
+        const { netlist: nl, steps: st } = functionWithDecoderNand(activeTT);
+        return {
+          netlist: nl,
+          steps: st,
+          label: `${activeTT.vars.length}-to-${1 << activeTT.vars.length} Active-low Decoder + NAND/AND Realization`,
+          desc: `74138-style decoder with the cheaper of NAND (F=1 rows) or AND (F=0 rows) for F(${activeTT.vars.join(', ')}).`,
         };
       } else {
         const { netlist: nl, steps: st } = functionWithDecoder(activeTT);
@@ -179,7 +184,13 @@ export function BlocksPage() {
         desc: gDef.desc,
       };
     }
-  }, [pageMode, implTarget, activeMuxConfig, activeTT, galleryKey]);
+  }, [pageMode, implTarget, activeMuxConfig, activeTT, galleryKey, workbenchTTs, workbenchOutputs]);
+
+  // The active-low decoder has no dedicated block symbol, so it is always shown at gate level.
+  const noBlockSymbol =
+    pageMode === 'implement' &&
+    (implTarget === 'decoder-nand' || (implTarget === 'demux' && activeTT.vars.length > DEMUX_DIAGRAM_MAX_VARS));
+  const shownView = noBlockSymbol ? 'gate' : diagramView;
 
   // Live output evaluation
   const values = useMemo(() => {
@@ -236,59 +247,103 @@ export function BlocksPage() {
             </div>
           </div>
 
-          {!presetTT && workbenchOutputs.length > 1 && (
+          {workbenchTTs && (
             <p className="dp-note" role="note">
-              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}). This page realizes the first one, {workbenchOutputs[0]}, as a single-output function.
+              Your design has {workbenchOutputs.length} outputs ({workbenchOutputs.join(', ')}).{' '}
+              {implTarget === 'demux'
+                ? 'One shared demultiplexer realizes all of them at once.'
+                : `Pick which output to realize, or choose Demultiplexer + OR to build all ${workbenchOutputs.length} together.`}
             </p>
           )}
 
           <div className="dp-toolbar">
             <label className="dp-field">
-              <span className="t-label">Function</span>
-              <select
-                value={presetTT ? presetLabel : ''}
-                onChange={(e) => {
-                  const p = PRESET_FUNCTIONS.find((x) => x.label === e.target.value);
-                  setPresetTT(p ? truthTableFromMinterms(p.vars, p.minterms) : null);
-                  setPresetLabel(p?.label ?? '');
-                  setSelectedMuxConfigIdx(0);
-                  setBits({});
-                }}
-              >
-                <option value="">From the workbench</option>
-                {PRESET_FUNCTIONS.map((p) => (
-                  <option key={p.label} value={p.label}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="dp-field">
               <span className="t-label">Block</span>
               <select
-                value={implTarget}
+                value={blockType}
                 onChange={(e) => {
-                  setImplTarget(e.target.value as 'mux' | 'decoder');
+                  setBlockType(e.target.value as 'mux' | 'decoder' | 'demux');
                   setBits({});
                 }}
               >
                 <option value="mux">Multiplexer</option>
-                <option value="decoder">Decoder + OR</option>
+                <option value="decoder">Decoder</option>
+                <option value="demux">Demultiplexer</option>
               </select>
             </label>
-            {implTarget === 'mux' && (
+            {workbenchTTs && blockType !== 'demux' && (
               <label className="dp-field">
-                <span className="t-label">MUX size</span>
+                <span className="t-label">Output</span>
                 <select
-                  value={safeMuxIdx}
+                  value={safeOutputIdx}
                   onChange={(e) => {
-                    setSelectedMuxConfigIdx(Number(e.target.value));
+                    setOutputIdx(Number(e.target.value));
                     setBits({});
                   }}
                 >
-                  {muxConfigs.map((cfg, idx) => (
-                    <option key={cfg.label} value={idx}>{cfg.label}</option>
+                  {workbenchOutputs.map((name, i) => (
+                    <option key={name} value={i}>{name}</option>
                   ))}
                 </select>
               </label>
+            )}
+            {blockType === 'mux' && (
+              <>
+                <label className="dp-field">
+                  <span className="t-label">Size · IC</span>
+                  <select
+                    value={safeK}
+                    onChange={(e) => {
+                      setMuxK(Number(e.target.value));
+                      setMuxCombo(0);
+                      setBits({});
+                    }}
+                  >
+                    {muxSizes.map((k) => (
+                      <option key={k} value={k}>{1 << k}:1 · {MUX_ICS[k]}</option>
+                    ))}
+                  </select>
+                </label>
+                {muxCombos.length > 1 && (
+                  <label className="dp-field">
+                    <span className="t-label">Select lines</span>
+                    <select
+                      value={safeCombo}
+                      onChange={(e) => {
+                        setMuxCombo(Number(e.target.value));
+                        setBits({});
+                      }}
+                    >
+                      {muxCombos.map((c, i) => (
+                        <option key={c.join('')} value={i}>{c.join(', ')}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+            {blockType === 'decoder' && (
+              <label className="dp-field">
+                <span className="t-label">Outputs</span>
+                <select
+                  value={decoderStyle}
+                  onChange={(e) => {
+                    setDecoderStyle(e.target.value as 'or' | 'nand');
+                    setBits({});
+                  }}
+                >
+                  <option value="or">Active-high + OR</option>
+                  <option value="nand">Active-low (74138) + NAND</option>
+                </select>
+              </label>
+            )}
+            {blockType !== 'mux' && (
+              <div className="dp-field">
+                <span className="t-label">Size · IC</span>
+                <span className="dp-muted">
+                  {activeTT.vars.length}-to-{1 << activeTT.vars.length} · {DECODER_ICS[activeTT.vars.length] ?? 'no single IC; cascade smaller decoders with enables'}
+                </span>
+              </div>
             )}
           </div>
 
@@ -296,7 +351,7 @@ export function BlocksPage() {
           {steps.length > 0 && (
             <details className="dp-derivation">
               <summary className="t-label">
-                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : 'minterm mapping'}
+                How it was derived · {implTarget === 'mux' ? 'Shannon expansion' : implTarget === 'decoder' ? 'minterm mapping' : implTarget === 'demux' ? 'shared demux lines' : 'active-low minterm mapping'}
               </summary>
               <ol>
                 {steps.map((st, i) => (
@@ -378,14 +433,31 @@ export function BlocksPage() {
 
         <div className="wb-seg wb-seg--sm dp-mode" role="group" aria-label="Diagram style">
           {([['block', 'Block diagram'], ['gate', 'Gate level']] as const).map(([m, label]) => (
-            <button key={m} type="button" aria-pressed={diagramView === m} className={diagramView === m ? 'is-on' : undefined} onClick={() => setDiagramView(m)}>
+            <button
+              key={m}
+              type="button"
+              aria-pressed={shownView === m}
+              className={shownView === m ? 'is-on' : undefined}
+              disabled={m === 'block' && noBlockSymbol}
+              title={m === 'block' && noBlockSymbol ? 'This realization is shown at gate level' : undefined}
+              onClick={() => setDiagramView(m)}
+            >
               {label}
             </button>
           ))}
         </div>
 
-        {diagramView === 'block' ? (
+        {shownView === 'block' ? (
           <div className="dp-diagram">
+            {pageMode === 'implement' && implTarget === 'demux' ? (
+              <DemuxDiagram
+                tts={workbenchTTs ?? [activeTT]}
+                outputNames={netlist.outputs}
+                inputs={bits}
+                onToggleInput={toggle}
+                outputValues={values}
+              />
+            ) : (
             <MsiBlockDiagram
               mode={pageMode}
               implTarget={implTarget}
@@ -397,12 +469,13 @@ export function BlocksPage() {
               outputValues={values}
               steps={steps}
             />
+            )}
           </div>
         ) : (
           <div className="wb-schematic dp-schematic">
             <Suspense fallback={<div className="sch-empty">Routing wires…</div>}>
               <SchematicView
-                key={`${pageMode}-${implTarget}-${safeMuxIdx}-${galleryKey}`}
+                key={`${pageMode}-${implTarget}-${safeMuxIdx}-${safeOutputIdx}-${galleryKey}`}
                 netlist={netlist}
                 inputs={bits}
                 onToggleInput={toggle}

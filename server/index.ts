@@ -1,3 +1,4 @@
+import { createLimiter, type Limiter } from './rateLimit';
 import express, { type ErrorRequestHandler, type Request, type Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,11 +23,15 @@ export interface ServerOptions {
   apiKey?: string;
   model?: string;
   provider?: string;
+  /** Allowed browser origin(s): a single origin or a comma-separated list. Same-origin requests are always allowed. */
   clientOrigin?: string;
   rateLimit?: number;
   rateWindowMs?: number;
   /** Ceiling for all callers combined per window, so one warm instance bounds spend. */
   globalLimit?: number;
+  limiter?: Limiter;
+  /** Trust X-Forwarded-For (only behind a proxy that overwrites it, e.g. Vercel). Defaults to TRUST_PROXY=1 or running on Vercel. */
+  trustProxy?: boolean;
 }
 
 interface ChatRequestBody {
@@ -211,29 +216,39 @@ export function createApp(options: ServerOptions = {}) {
   const apiKey = options.apiKey ?? process.env.LLM_API_KEY ?? fileEnv.LLM_API_KEY ?? '';
   const model = options.model ?? process.env.LLM_MODEL ?? fileEnv.LLM_MODEL ?? 'gemini-2.5-flash';
   const provider = options.provider ?? process.env.LLM_PROVIDER ?? fileEnv.LLM_PROVIDER ?? 'gemini';
-  const clientOrigin = options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
-  const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT);
+  const allowedOrigins = new Set(
+    (options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? fileEnv.CLIENT_ORIGIN ?? 'http://localhost:5173')
+      .split(',')
+      .map((o) => o.trim().replace(/\/$/, ''))
+      .filter(Boolean),
+  );
+  const configuredRateLimit = Number(process.env.CHAT_RATE_LIMIT ?? fileEnv.CHAT_RATE_LIMIT);
   const rateLimit = options.rateLimit ?? (configuredRateLimit > 0 ? configuredRateLimit : DEFAULT_RATE_LIMIT);
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
-  const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT);
+  const configuredGlobal = Number(process.env.CHAT_GLOBAL_LIMIT ?? fileEnv.CHAT_GLOBAL_LIMIT);
   const globalLimit = options.globalLimit ?? (configuredGlobal > 0 ? configuredGlobal : DEFAULT_GLOBAL_LIMIT);
-  const global = { count: 0, resetAt: 0 };
-  const requestsByIp = new Map<string, { count: number; resetAt: number }>();
+  const limiter = options.limiter ?? createLimiter();
+  const trustProxy = options.trustProxy ?? (process.env.TRUST_PROXY === '1' || Boolean(process.env.VERCEL));
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const origin = req.get('origin');
-    if (origin === clientOrigin) {
-      res.setHeader('Access-Control-Allow-Origin', clientOrigin);
+    // Same-origin (the deployed site calling its own /api) always passes; otherwise the origin must be listed.
+    const sameOrigin = origin !== undefined && (() => {
+      try { return new URL(origin).host === req.get('host'); } catch { return false; }
+    })();
+    const allowed = origin !== undefined && (sameOrigin || allowedOrigins.has(origin));
+    if (origin && allowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     }
+    if (origin && !allowed) {
+      res.status(403).json({ error: 'origin_not_allowed' });
+      return;
+    }
     if (req.method === 'OPTIONS') {
-      if (origin && origin !== clientOrigin) {
-        res.status(403).json({ error: 'origin_not_allowed' });
-      } else {
-        res.sendStatus(204);
-      }
+      res.sendStatus(204);
       return;
     }
     next();
@@ -241,30 +256,13 @@ export function createApp(options: ServerOptions = {}) {
   app.use(express.json({ limit: '128kb', strict: true }));
 
   app.post('/api/chat', async (req: Request, res: Response) => {
-    const now = Date.now();
-    // Behind Vercel/most proxies req.ip is the proxy, which would put every visitor in one bucket.
-    const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
-    const ip = forwarded || req.get('x-real-ip') || req.ip || req.socket.remoteAddress || 'unknown';
-    if (global.resetAt <= now) {
-      global.count = 0;
-      global.resetAt = now + rateWindowMs;
-    }
-    if (global.count >= globalLimit) {
+    // The client-supplied header is only believable behind a proxy that overwrites it; otherwise use the socket.
+    const forwarded = trustProxy ? req.get('x-forwarded-for')?.split(',')[0]?.trim() : undefined;
+    const ip = forwarded || (trustProxy ? req.get('x-real-ip') : undefined) || req.socket.remoteAddress || 'unknown';
+    if (!(await limiter.hit('global', globalLimit, rateWindowMs)) || !(await limiter.hit(`ip:${ip}`, rateLimit, rateWindowMs))) {
       res.status(429).json({ error: 'rate_limited' });
       return;
     }
-    global.count++;
-    if (requestsByIp.size > 5000) requestsByIp.clear();
-    for (const [address, entry] of requestsByIp) {
-      if (entry.resetAt <= now) requestsByIp.delete(address);
-    }
-    const entry = requestsByIp.get(ip);
-    if (entry && entry.count >= rateLimit && entry.resetAt > now) {
-      res.status(429).json({ error: 'rate_limited' });
-      return;
-    }
-    if (entry && entry.resetAt > now) entry.count++;
-    else requestsByIp.set(ip, { count: 1, resetAt: now + rateWindowMs });
 
     const body = validateBody(req.body);
     if (!body) {

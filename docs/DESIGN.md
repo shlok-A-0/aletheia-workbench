@@ -1,8 +1,8 @@
 # Design system
 
-Neo-Brutalist, engineering-grade. Dark is the default; "Paper" is the light theme.
+Neo-Brutalist, engineering-grade. The app is dark-only.
 Every colour, size and spacing value comes from tokens in `src/index.css`. Do not
-hardcode hex values in components or CSS: the light theme and the SVG diagrams
+hardcode hex values in components or CSS: the SVG diagrams
 depend on tokens.
 
 ## The one rule

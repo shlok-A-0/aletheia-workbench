@@ -198,27 +198,27 @@ export const InputPage: React.FC = () => {
       <PageHead kicker="Input / Advanced" title="Boolean Function & Input Specification" sub="Specify your logic function through algebraic formulas, standard minterm/maxterm indices, or direct truth table output editing." />
 
       {/* Tabs */}
-      <div className="input-tabs">
+      <div className="wb-seg">
         <button
-          className={`tab-btn ${activeTab === 'expr' ? 'active' : ''}`}
+          className={activeTab === 'expr' ? 'is-on' : undefined}
           onClick={() => setActiveTab('expr')}
         >
           Boolean Expression
         </button>
         <button
-          className={`tab-btn ${activeTab === 'minterms' ? 'active' : ''}`}
+          className={activeTab === 'minterms' ? 'is-on' : undefined}
           onClick={() => setActiveTab('minterms')}
         >
           Σm Minterms
         </button>
         <button
-          className={`tab-btn ${activeTab === 'maxterms' ? 'active' : ''}`}
+          className={activeTab === 'maxterms' ? 'is-on' : undefined}
           onClick={() => setActiveTab('maxterms')}
         >
           ΠM Maxterms
         </button>
         <button
-          className={`tab-btn ${activeTab === 'table' ? 'active' : ''}`}
+          className={activeTab === 'table' ? 'is-on' : undefined}
           onClick={() => setActiveTab('table')}
         >
           Direct Table
@@ -227,7 +227,7 @@ export const InputPage: React.FC = () => {
 
       {/* TAB 1: EXPRESSION */}
       {activeTab === 'expr' && (
-        <div className="glass-card input-card">
+        <div className="dp-panel">
           <div className="card-header">
             <h3>Boolean Algebraic Expression</h3>
             <span className="info-tag">Supports A-Z, NOT ('), AND, OR (+), XOR (^), XNOR (~^)</span>
@@ -323,7 +323,7 @@ export const InputPage: React.FC = () => {
 
       {/* TAB 2: MINTERMS */}
       {activeTab === 'minterms' && (
-        <div className="glass-card input-card">
+        <div className="dp-panel">
           <div className="card-header">
             <h3>Canonical Minterms Specification (Σm)</h3>
           </div>
@@ -369,7 +369,7 @@ export const InputPage: React.FC = () => {
 
       {/* TAB 3: MAXTERMS */}
       {activeTab === 'maxterms' && (
-        <div className="glass-card input-card">
+        <div className="dp-panel">
           <div className="card-header">
             <h3>Canonical Maxterms Specification (ΠM)</h3>
           </div>
@@ -415,7 +415,7 @@ export const InputPage: React.FC = () => {
 
       {/* TAB 4: DIRECT TABLE */}
       {activeTab === 'table' && (
-        <div className="glass-card input-card">
+        <div className="dp-panel">
           <div className="card-header">
             <h3>Direct Truth Table Output Editor</h3>
             <span className="info-tag">Click any cell in the Output (Y) column to cycle: 0 → 1 → x</span>
@@ -481,7 +481,7 @@ export const InputPage: React.FC = () => {
       <div className="action-footer">
         {inputError && <div className="error-banner" role="alert">{inputError}</div>}
         <button
-          className="btn-primary-large"
+          className="btn-primary"
           onClick={handleGenerateAndProceed}
           disabled={(activeTab === 'expr' && Boolean(validation.error)) || numVars > 8}
         >

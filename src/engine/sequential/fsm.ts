@@ -64,6 +64,10 @@ export function validateStateTable(st: StateTable): string[] {
   }
 
   const numInputBits = st.inputs.length;
+  if (numInputBits > 16) {
+    errors.push(`State tables with more than 16 inputs (${numInputBits}) are not supported.`);
+    return errors;
+  }
   const numInputCombos = 1 << numInputBits;
 
   // Check each state for completeness and determinism

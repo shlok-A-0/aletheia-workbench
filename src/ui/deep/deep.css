@@ -30,12 +30,6 @@
 .dp-sub { margin: 0; max-width: 62ch; color: var(--text-2); font-size: var(--fs-md); }
 
 /* ---------- surfaces ---------- */
-.shell-main .dp .card,
-.shell-main .dp .glass-card,
-.shell-main .dp .input-card,
-.shell-main .dp .dashboard-card,
-.shell-main .dp .concept-card,
-.shell-main .dp .p6-library-card,
 .dp-panel {
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -45,9 +39,6 @@
   backdrop-filter: none;
   padding: var(--space-5);
 }
-.shell-main .dp .card:hover,
-.shell-main .dp .glass-card:hover { transform: none; box-shadow: none; }
-
 .shell-main .dp .card-title,
 .shell-main .dp h3,
 .dp-h2 {
@@ -64,8 +55,7 @@
 .dp-muted { color: var(--text-2); font-size: var(--fs-sm); margin: 0 0 var(--space-4); }
 
 /* ---------- stat chips ---------- */
-.shell-main .dp .stat-chip,
-.shell-main .dp .stat-card,
+.dp-stat,
 .dp-stats li {
   background: var(--inset);
   border: 1px solid var(--line);
@@ -73,7 +63,10 @@
   box-shadow: none;
 }
 .dp-stats { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
-.dp-stats li { display: grid; gap: 2px; padding: var(--space-2) var(--space-4); min-width: 88px; }
+.dp-stats li,
+.dp-stats .dp-stat { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-4); min-width: 88px; }
+.dp-stats .stat-label,
+.dp-stats .stat-value { display: block; }
 .dp-stats b { font-family: var(--font-mono); font-size: var(--fs-xl); color: var(--text-1); }
 .shell-main .dp .stat-label,
 .shell-main .dp .switch-label,
@@ -86,7 +79,7 @@
   color: var(--text-3);
 }
 .shell-main .dp .stat-value { font-family: var(--font-mono); color: var(--text-1); }
-.shell-main .dp .variant-chip .stat-value { color: var(--signal-ink); }
+.shell-main .dp .dp-stat .stat-value { color: var(--signal-ink); }
 .shell-main .dp .circuit-stats-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0; }
 
 /* ---------- tables ---------- */
@@ -150,10 +143,7 @@
 
 /* ---------- buttons ---------- */
 .shell-main .dp button { border-radius: 0; font-family: var(--font-mono); letter-spacing: 0.04em; }
-.shell-main .dp .btn-primary,
-.shell-main .dp .btn-primary-large,
-.shell-main .dp .btn-action.btn-sim,
-.shell-main .dp .btn-verify {
+.shell-main .dp .btn-primary {
   background: var(--signal);
   color: var(--on-signal);
   border: 1px solid var(--signal);
@@ -166,16 +156,10 @@
   cursor: pointer;
   transition: transform var(--dur-1) var(--ease-snap), box-shadow var(--dur-1);
 }
-.shell-main .dp .btn-primary:hover,
-.shell-main .dp .btn-primary-large:hover,
-.shell-main .dp .btn-action.btn-sim:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--text-1); }
-.shell-main .dp .btn-primary:active,
-.shell-main .dp .btn-primary-large:active { transform: none; box-shadow: none; }
-.shell-main .dp .btn-primary:disabled,
-.shell-main .dp .btn-primary-large:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+.shell-main .dp .btn-primary:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--text-1); }
+.shell-main .dp .btn-primary:active { transform: none; box-shadow: none; }
+.shell-main .dp .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 .shell-main .dp .btn-secondary,
-.shell-main .dp .btn-action:not(.btn-sim),
-.shell-main .dp .btn-copy,
 .shell-main .dp .op-chip,
 .shell-main .dp .preset-chip,
 .shell-main .dp .prompt-chip,
@@ -192,61 +176,17 @@
   cursor: pointer;
 }
 .shell-main .dp .btn-secondary:hover,
-.shell-main .dp .btn-action:not(.btn-sim):hover,
 .shell-main .dp .op-chip:hover,
 .shell-main .dp .preset-chip:hover { border-color: var(--signal); color: var(--signal-ink); }
 .shell-main .dp .timing-action-row .btn-primary,
 .shell-main .dp .timing-controls .btn-primary { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
 
-/* tab-like controls -> segmented */
-.shell-main .dp .circuit-variant-bar,
-.shell-main .dp .circuit-toolbar,
-.shell-main .dp .p6-tab-row,
-.shell-main .dp .input-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  margin-bottom: var(--space-5);
-}
-.shell-main .dp .btn-variant,
-.shell-main .dp .btn-toggle,
-.shell-main .dp .tab-btn,
-.shell-main .dp .p6-tab-row button,
-.shell-main .dp .input-tabs button {
-  background: transparent;
-  color: var(--text-2);
-  border: 0;
-  border-right: 1px solid var(--line);
-  border-radius: 0;
-  box-shadow: none;
-  min-height: 40px;
-  padding: 0 var(--space-5);
-  text-transform: uppercase;
-  font-size: var(--fs-label);
-  letter-spacing: var(--track-label);
-  cursor: pointer;
-}
-.shell-main .dp .btn-variant:last-child,
-.shell-main .dp .btn-toggle:last-child,
-.shell-main .dp .p6-tab-row button:last-child,
-.shell-main .dp .input-tabs button:last-child { border-right: 0; }
-.shell-main .dp .btn-variant:hover,
-.shell-main .dp .btn-toggle:hover,
-.shell-main .dp .p6-tab-row button:hover,
-.shell-main .dp .input-tabs button:hover { color: var(--text-1); }
-.shell-main .dp .btn-variant.active,
-.shell-main .dp .btn-toggle.active,
-.shell-main .dp .tab-btn.active,
-.shell-main .dp .p6-tab-row button[aria-selected='true'],
-.shell-main .dp .input-tabs button.active {
-  background: var(--signal);
-  color: var(--on-signal);
-  box-shadow: none;
-}
+/* segmented controls are the shared .wb-seg (workbench.css); here: wrap and scroll behaviour */
+.shell-main .dp .wb-seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; margin-bottom: var(--space-5); }
+.shell-main .dp .wb-seg button { flex: none; white-space: nowrap; }
+.shell-main .dp .wb-seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dp-controls { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+.dp-controls .wb-seg { margin-bottom: 0; }
 
 /* logic switches */
 .shell-main .dp .circuit-input-switches { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
@@ -273,7 +213,6 @@
 .shell-main .dp .input-switch.on .switch-name { color: inherit; }
 
 /* chips / pills */
-.shell-main .dp .block-chip,
 .dp-chip {
   background: transparent;
   color: var(--text-2);
@@ -286,11 +225,8 @@
   cursor: pointer;
   transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
 }
-.shell-main .dp .block-chip:hover,
 .dp-chip:hover { color: var(--text-1); border-color: var(--text-2); }
-.shell-main .dp .block-chip.active,
 .dp-chip.is-on { background: var(--signal); color: var(--on-signal); border-color: var(--signal); font-weight: 700; }
-.shell-main .dp .block-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 .shell-main .dp .verify-badge,
 .shell-main .dp .success-banner,
@@ -325,6 +261,7 @@
 .dp-bit--out { cursor: default; border-style: dashed; }
 .dp-bit--out.is-1 { border-style: solid; }
 .dp-schematic { min-height: 440px; }
+.dp-schematic--sm { min-height: 320px; }
 
 /* ---------- flip-flops ---------- */
 .ff-grid-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
@@ -346,8 +283,7 @@
 
 /* ---------- misc old components ---------- */
 .shell-main .dp .concept-grid,
-.shell-main .dp .dashboard-grid,
-.shell-main .dp .canonical-cards-grid { gap: var(--space-4); }
+.shell-main .dp .dashboard-grid { gap: var(--space-4); }
 .shell-main .dp .concept-card a,
 .shell-main .dp .dashboard-card-head a { color: var(--signal-ink); font-family: var(--font-mono); font-size: var(--fs-label); letter-spacing: var(--track-label); text-transform: uppercase; text-decoration: none; }
 .shell-main .dp .concept-card a:hover,
@@ -383,7 +319,6 @@
 .shell-main .dp .ff-card .circuit-input-switches { margin-top: var(--space-4) !important; gap: var(--space-4); }
 .shell-main .dp .ff-card .circuit-input-switches label { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
 .shell-main .dp .tab-pane-sequential { display: grid; gap: var(--space-4); }
-.shell-main .dp .tab-pane-sequential > .circuit-variant-bar { margin-bottom: 0 !important; }
 
 .shell-main .dp :where(div, section, article, button, input, select, textarea, li, table, span, p, a):not([class*='dot']):not(.lg) { border-radius: 0; }
 .shell-main .dp button:not([class]) {
@@ -398,21 +333,37 @@
 .dp-empty { display: grid; gap: var(--space-4); justify-items: start; }
 .dp-empty .btn-primary { display: inline-flex; align-items: center; text-decoration: none; }
 
-/* tab rows scroll sideways on narrow screens instead of widening the page */
-.shell-main .dp .view-toggle-group,
-.shell-main .dp .circuit-variant-bar,
-.shell-main .dp .p6-tab-row,
-.shell-main .dp .input-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
-.shell-main .dp .btn-toggle,
-.shell-main .dp .btn-variant { white-space: nowrap; flex: none; }
 
-/* blocks page: one toolbar, one mode switch, collapsible derivation */
+/* mobile: segmented rows scroll instead of widening the page */
+@media (max-width: 560px) { .shell-main .dp .wb-seg { flex-wrap: nowrap; } }
+
+/* ---------- demux realization diagram ---------- */
+.dmx-svg { max-width: 700px; height: auto; display: block; margin: 0 auto; }
+.dmx-box { fill: var(--inset); stroke: var(--signal-ink); stroke-width: 2.5; }
+.dmx-title { fill: var(--text-1); font: 800 18px var(--font-mono); }
+.dmx-sub { fill: var(--signal-ink); font: 700 13px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; }
+.dmx-pin { fill: var(--text-1); font: 600 12px var(--font-mono); }
+.dmx-pin--dim { fill: var(--text-3); font-size: 11px; }
+.dmx-pin--line { fill: var(--text-3); font-size: 11px; }
+.dmx-pin--line.is-on { fill: var(--signal-ink); }
+.dmx-wire { stroke: var(--line-strong); stroke-width: 1.5; }
+.dmx-wire.is-on { stroke: var(--signal-ink); stroke-width: 2.5; }
+.dmx-wire.is-idle { stroke: var(--line); stroke-width: 1; }
+.dmx-wire--route { stroke: var(--logic-x); stroke-width: 1.2; opacity: 0.8; }
+.dmx-wire--route.is-on { stroke: var(--signal-ink); opacity: 1; stroke-width: 2.5; }
+.dmx-input { cursor: pointer; }
+.dmx-input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.dmx-or { fill: var(--surface); stroke: var(--text-2); stroke-width: 2; }
+.dmx-or.is-on { stroke: var(--signal-ink); }
+.dmx-out { fill: var(--text-1); font: 700 13px var(--font-mono); }
+.dmx-val { fill: var(--text-2); font: 800 18px var(--font-mono); }
+.dmx-val.is-on { fill: var(--signal-ink); }
+.dmx-caption { font-size: var(--fs-sm); margin-top: var(--space-2); text-align: center; }
 .dp-mode { margin-bottom: var(--space-5); }
 .dp-panel--spaced { margin-bottom: var(--space-6); }
 .dp-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-4); }
 .dp-field { display: grid; gap: var(--space-2); min-width: min(100%, 220px); flex: 1 1 220px; }
 .dp-field select { min-height: 40px; padding: 0 var(--space-3); width: 100%; }
-.dp-panel-head .dp-muted a { color: var(--signal-ink); }
 .dp-derivation { background: var(--inset); border: 1px solid var(--line); }
 .dp-derivation summary { cursor: pointer; padding: var(--space-3) var(--space-4); list-style: none; }
 .dp-derivation summary::-webkit-details-marker { display: none; }
@@ -421,6 +372,91 @@
 .dp-derivation ol { margin: 0; padding: 0 var(--space-4) var(--space-4) var(--space-6); display: grid; gap: var(--space-2); color: var(--text-2); font-size: var(--fs-sm); }
 .dp-derivation b { color: var(--text-1); }
 .dp-diagram { background: var(--inset); border: 1px solid var(--line-strong); padding: var(--space-4); overflow-x: auto; }
-.dp-chip { text-transform: uppercase; font-size: var(--fs-label); letter-spacing: var(--track-label); }
-
 .dp-note { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--logic-x); color: var(--text-1); font-size: var(--fs-sm); }
+
+/* ---------- utilities (replace one-off inline styles) ---------- */
+.u-mt-1 { margin-top: var(--space-1); }
+.u-mt-2 { margin-top: var(--space-2); }
+.u-mt-3 { margin-top: var(--space-3); }
+.u-mt-4 { margin-top: var(--space-4); }
+.u-mb-4 { margin-bottom: var(--space-4); }
+.u-my-3 { margin-block: var(--space-3); }
+.u-ml-auto { margin-left: auto; }
+.u-self-start { align-self: flex-start; }
+.u-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.u-row--tight { gap: var(--space-2); }
+.u-wrap { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.u-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.u-between { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.u-center { text-align: center; }
+.u-center-row { display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap; }
+.u-col-center { display: flex; flex-direction: column; align-items: center; }
+.u-pad-5 { padding: var(--space-5); }
+.u-pad-compact { padding: var(--space-3) var(--space-4); }
+.u-muted { color: var(--text-2); }
+.u-caption { font-size: var(--fs-sm); }
+.u-maxh-scroll { max-height: 320px; overflow: auto; }
+
+/* ---------- MSI diagram hooks ---------- */
+.msi-block-container { text-align: center; }
+.msi-svg { max-width: 740px; height: auto; display: block; margin: 0 auto; }
+.msi-addr-group,
+.msi-pin-group,
+.msi-select-group { cursor: pointer; }
+
+/* ---------- state diagram (SVG) ---------- */
+.sd-arrow { fill: var(--signal-ink); }
+.sd-arrow--self { fill: var(--text-2); }
+.sd-edge { fill: none; stroke: var(--signal-ink); stroke-width: 1.5; }
+.sd-edge--self { stroke: var(--text-2); }
+.sd-label { fill: var(--text-1); font-family: var(--font-mono); font-size: 11px; paint-order: stroke; stroke: var(--canvas); stroke-width: 4px; stroke-linejoin: round; }
+.sd-label--self { fill: var(--text-2); }
+.sd-node { fill: var(--inset); stroke: var(--line-strong); stroke-width: 2; }
+.sd-node.is-reset { fill: var(--signal-dim); stroke: var(--signal); }
+.sd-node-text { fill: var(--text-1); font-family: var(--font-mono); font-weight: 700; }
+.sd-node-out { fill: var(--signal-ink); font-family: var(--font-mono); }
+
+/* ---------- timing waveform ---------- */
+.timing-bg { fill: var(--inset); }
+.msi-caption { font-size: var(--fs-xs, 12px); margin-top: var(--space-2); }
+/* standalone stat chip (outside a .dp-stats list): label and value side by side */
+.circuit-stats-bar .dp-stat { display: inline-flex; align-items: baseline; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+
+/* timing: parameter grid and internal-signal explainer */
+.dp-params { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); padding: 0 var(--space-4) var(--space-4); }
+.dp-params .dp-field { min-width: 0; flex: none; }
+.dp-params input { min-height: 40px; width: 100%; }
+.timing-internal { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.timing-internal p { margin: 0; color: var(--text-2); }
+.timing-internal label { display: inline-flex; gap: var(--space-2); align-items: center; font-weight: 700; cursor: pointer; }
+.timing-controls .timing-action-row { margin: var(--space-4) 0; }
+.timing-stimulus-list { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.timing-stimulus-chip { display: inline-flex; align-items: center; gap: var(--space-2); padding: 2px var(--space-2) 2px var(--space-3); border: 1px solid var(--line-strong); background: var(--inset); font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-2); }
+.timing-stimulus-chip button { min-height: 0 !important; padding: 0 var(--space-1) !important; border: 0 !important; background: transparent !important; color: var(--text-3); font-size: var(--fs-md, 16px); line-height: 1; }
+.timing-stimulus-chip button:hover { color: var(--signal-ink); }
+
+/* faults page */
+.dp-field--sm { min-width: 90px; flex: 0 1 110px; }
+.dp-radios { border: 0; padding: 0; margin: 0; }
+.dp-radios legend { padding: 0; margin-bottom: var(--space-2); }
+.dp-radio-row { display: flex; gap: var(--space-4); align-items: center; min-height: 40px; font-family: var(--font-mono); }
+.dp-radio-row label { display: inline-flex; gap: var(--space-2); align-items: center; cursor: pointer; }
+.dp-vectors { display: flex; flex-wrap: wrap; gap: var(--space-3); list-style: none; margin: var(--space-4) 0 0; padding: 0; }
+.dp-vectors li { min-height: 40px; gap: var(--space-3); }
+.dp-vectors span { color: var(--text-2); font-weight: 400; }
+.shell-main .dp .p6-output-comparison { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
+.shell-main .dp .fault-output { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-4); border: 1px solid var(--line-strong); background: var(--inset); font-family: var(--font-mono); }
+.shell-main .dp .fault-output.mismatch { border-color: var(--accent-rose); }
+.shell-main .dp .fault-output.mismatch b { color: var(--accent-rose); }
+.shell-main .dp .p6-output-comparison .fault-output { display: flex; flex-direction: row; text-align: left; align-items: center; gap: var(--space-4); min-height: 0; }
+.shell-main .dp .p6-output-comparison .fault-output > * { margin: 0; }
+.dp-vectors span { color: inherit; opacity: 0.7; }
+.timing-glitch-pulse { fill: var(--error); opacity: 0.28; stroke: var(--error); stroke-width: 1; pointer-events: none; }
+.timing-glitch-label { fill: var(--error); font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; pointer-events: none; }
+
+/* flip-flop cards: even vertical rhythm instead of stacked legacy margins */
+.shell-main .dp .ff-card { gap: var(--space-4); padding: var(--space-5); }
+.shell-main .dp .ff-card > * { margin: 0 !important; }
+.shell-main .dp .ff-card .card-title { font-size: var(--fs-lg, 1.1rem); }
+.shell-main .dp .ff-card .card-subtitle { margin-top: calc(-1 * var(--space-2)) !important; }
+.shell-main .dp .ff-card .circuit-input-switches { margin-top: 0 !important; }

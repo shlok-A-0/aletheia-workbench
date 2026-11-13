@@ -143,6 +143,8 @@ export function activityFromSequence(
     for (const [net, transitions] of Object.entries(result.transitions)) riseCounts[net] = transitions.rise;
   } else {
     let previous: Record<NetId, 0 | 1> = Object.fromEntries(allNets(netlist).map((net) => [net, 0]));
+    // Start from the first vector's settled values so static-high nets are not counted as a rise.
+    if (sequence.length > 0) previous = { ...previous, ...evaluate(netlist, sequence[0]) } as Record<NetId, 0 | 1>;
     for (const vector of sequence) {
       const values = evaluate(netlist, vector);
       for (const net of allNets(netlist)) {

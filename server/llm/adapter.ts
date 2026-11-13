@@ -30,10 +30,9 @@ export const geminiAdapter: LLMAdapter = {
     const endpoint = new URL(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`
     );
-    endpoint.searchParams.set('key', apiKey);
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { EXAMPLES, loadExample } from '../examples';
-import { analyzeSource, applyAnalysis, type Source, type SourceMode } from '../../pipeline/analyze';
+import { analyzeLarge, analyzeTable, applyAnalysis, needsWorker, parseSource, MAX_VARS, type Source, type SourceMode } from '../../pipeline/analyze';
 import { useResults } from '../../pipeline/useResults';
 import { IconArrow } from './icons';
+import { decodeShare, shareUrl } from '../share';
+import { HeroPreview } from './HeroPreview';
 
 const DEFAULT_EXPR = "A'B + C";
 const OPS: [string, string][] = [["'", 'NOT'], [' + ', 'OR'], [' * ', 'AND'], [' ^ ', 'XOR'], ['(', ''], [')', '']];
@@ -17,6 +19,8 @@ const MODES: { id: SourceMode; label: string }[] = [
 const INLINE_ROUTES = new Set(['/', '/#circuit']);
 
 function initialSource(): Source {
+  const shared = typeof window !== 'undefined' ? decodeShare(window.location.search) : null;
+  if (shared) return shared;
   const s = useStore.getState();
   if (s.rawInput) {
     const mode = s.inputMode === 'minterms' || s.inputMode === 'maxterms' ? s.inputMode : 'expr';
@@ -24,7 +28,7 @@ function initialSource(): Source {
       mode,
       text: s.inputMode === 'minterms' ? (s.mintermsStr || s.rawInput) : s.rawInput,
       dontCares: s.dontCaresStr || '',
-      numVars: Math.min(Math.max(s.vars.length, 2), 6),
+      numVars: Math.min(Math.max(s.vars.length, 2), MAX_VARS),
     };
   }
   return {
@@ -41,13 +45,32 @@ export function Hero() {
   const [src, setSrc] = useState<Source>(initialSource);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState('');
   const timer = useRef(0);
   const field = useRef<HTMLInputElement | null>(null);
 
+  // Each edit gets a sequence number so a slow background solve can never overwrite a newer edit.
+  const seq = useRef(0);
+  const [solving, setSolving] = useState(false);
+
   const run = useCallback((next: Source, delay = 160) => {
     window.clearTimeout(timer.current);
+    const id = ++seq.current;
     timer.current = window.setTimeout(() => {
-      const out = analyzeSource(next);
+      const parsed = parseSource(next);
+      if (parsed.ok && needsWorker(parsed)) {
+        setSolving(true);
+        setError(null);
+        void analyzeLarge(parsed.table, parsed.expr).then((out) => {
+          if (id !== seq.current) return; // superseded by a newer edit
+          setSolving(false);
+          if (out.ok) applyAnalysis(out.analysis, next);
+          else setError(out.error);
+        });
+        return;
+      }
+      setSolving(false);
+      const out = parsed.ok ? analyzeTable(parsed.table, parsed.expr) : parsed;
       if (out.ok) {
         applyAnalysis(out.analysis, next);
         setError(null);
@@ -62,7 +85,8 @@ export function Hero() {
   useEffect(() => {
     // Guard on the derived table, not rawInput: the store's default rawInput is
     // non-empty, so checking it left a first-time visitor with an empty page.
-    if (!useStore.getState().truthTable) run(src, 0);
+    // A shared link always wins over whatever was restored from the last session.
+    if (decodeShare(window.location.search) || !useStore.getState().truthTable) run(src, 0);
     return () => window.clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -102,11 +126,25 @@ export function Hero() {
     }
   };
 
+  const share = async () => {
+    const url = shareUrl(src);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('Link copied');
+    } catch {
+      // Clipboard can be blocked (insecure context, permissions): show the link instead.
+      setShareNote(url);
+    }
+    window.setTimeout(() => setShareNote(''), 4000);
+  };
+
   const isExpr = src.mode === 'expr';
   const activeVars = useStore((s) => s.vars);
   const isHighVar = activeVars.length > 5;
   const status = error
     ? { cls: 'is-error', text: error }
+    : solving
+      ? { cls: 'is-busy', text: `Solving ${src.mode === 'expr' ? 'a large function' : `${src.numVars} variables`} in the background…` }
     : loaded
       ? { cls: 'is-ok', text: `${loaded} loaded. Type to replace it.` }
       : results.hasResult
@@ -128,7 +166,7 @@ export function Hero() {
       <span className="wb-px wb-px--sm" style={{ top: '82%', left: '88%' }} aria-hidden="true" />
 
       <div className="wb-hero-body">
-        <h1 className="wb-hero-title echo" data-text={'LOGIC IN.\nCIRCUIT OUT.'}>
+        <h1 className="wb-hero-title">
           LOGIC IN.
           <br />
           CIRCUIT OUT.
@@ -150,11 +188,17 @@ export function Hero() {
                 </button>
               ))}
             </div>
+            <div className="wb-share-wrap">
+              <span className="wb-share-note" role="status" aria-live="polite">{shareNote}</span>
+              <button type="button" className="wb-share" onClick={share} disabled={!results.hasResult}>
+                Copy share link
+              </button>
+            </div>
             {!isExpr && (
               <label className="wb-vars">
                 <span className="t-label">Vars</span>
                 <select value={src.numVars} onChange={(e) => update({ numVars: Number(e.target.value) })}>
-                  {[2, 3, 4, 5, 6].map((n) => (
+                  {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
@@ -228,6 +272,8 @@ export function Hero() {
           </div>
         </div>
       </div>
+
+      <HeroPreview />
 
       <div className="wb-hero-foot" aria-hidden="true">
         <span>↓ scroll</span>

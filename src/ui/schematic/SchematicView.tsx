@@ -19,10 +19,11 @@ import {
   gateGeometry,
   isSchematicSupported,
   layoutSchematic,
-  roundedPath,
   type SchematicLayout,
   type SchematicNode,
 } from './elkLayout';
+import { rerouteWire, type Offsets } from './dragRoute';
+import { analyzeWiring, wirePath, type Pt } from './wiring';
 
 type Bit = 0 | 1 | undefined;
 
@@ -40,6 +41,11 @@ interface GateData extends Record<string, unknown> {
 interface WireData extends Record<string, unknown> {
   points: { x: number; y: number }[];
   value: Bit;
+  net: string;
+  /** Where this wire hops over a wire of another net. */
+  hops: Pt[];
+  /** Junction dots drawn with this wire (one wire per net carries each dot). */
+  dots: Pt[];
 }
 
 const pinStyle = (x: number, y: number, side: 'l' | 'r') => ({
@@ -133,7 +139,14 @@ const TerminalNode = memo(function TerminalNode({ data }: NodeProps<Node<Termina
 const WireEdge = memo(function WireEdge({ id, data }: EdgeProps<Edge<WireData>>) {
   if (!data || !data.points || data.points.length < 2) return null;
   const cls = data.value === 1 ? 'sch-wire is-1' : data.value === 0 ? 'sch-wire is-0' : 'sch-wire';
-  return <BaseEdge id={id} path={roundedPath(data.points, 6)} className={cls} interactionWidth={0} />;
+  return (
+    <>
+      <BaseEdge id={id} path={wirePath(data.points, data.hops, 6)} className={cls} interactionWidth={0} />
+      {data.dots.map((d) => (
+        <circle key={`${d.x},${d.y}`} cx={d.x} cy={d.y} r={3.2} className={data.value === 1 ? 'sch-dot is-1' : 'sch-dot'} />
+      ))}
+    </>
+  );
 });
 
 interface FFData extends Record<string, unknown> {
@@ -148,49 +161,23 @@ const FFNode = memo(function FFNode({ data }: NodeProps<Node<FFData>>) {
   const cls = value === 1 ? 'sch-ff is-1' : value === 0 ? 'sch-ff is-0' : 'sch-ff';
 
   return (
-    <div
-      className={cls}
-      style={{
-        width: w,
-        height: h,
-        position: 'relative',
-        background: 'var(--surface)',
-        border: '1.5px solid var(--line-strong)',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          height: '100%',
-          padding: '4px 6px',
-          boxSizing: 'border-box',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '11px',
-          color: 'var(--text-1)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
+    <div className={cls} style={{ width: w, height: h }}>
+      <div className="sch-ff-body">
+        <div className="sch-ff-row">
+          <span className="sch-ff-pin">
             {ffType === 'JK' ? 'J' : ffType === 'T' ? 'T' : 'D'}
           </span>
-          <span style={{ fontWeight: 700, color: value === 1 ? 'var(--signal-ink)' : 'var(--text-1)' }}>
-            Q
-          </span>
+          <span className={`sch-ff-q${value === 1 ? ' is-1' : ''}`}>Q</span>
         </div>
-        <div style={{ textAlign: 'center', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.05em' }}>
-          {ffType}-FF
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: 'var(--text-2)' }}>
+        <div className="sch-ff-type">{ffType}-FF</div>
+        <div className="sch-ff-row">
+          <span className="sch-ff-pin sch-ff-clk">
             <svg width="8" height="10" viewBox="0 0 8 10">
               <path d="M0,1 L7,5 L0,9" fill="none" stroke="currentColor" strokeWidth="1.2" />
             </svg>
             CLK
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
+          <span className="sch-ff-pin sch-ff-pin--dim">
             {ffType === 'JK' ? 'K' : node.outPins && node.outPins.length > 1 ? "Q'" : ''}
           </span>
         </div>
@@ -235,9 +222,27 @@ function toFlow(
     targetHandle: e.toPort,
     selectable: false,
     focusable: false,
-    data: { points: e.points, value: values?.[e.net] },
+    data: { points: e.points, value: values?.[e.net], net: e.net, hops: [], dots: [] },
   }));
   return { nodes, edges };
+}
+
+/** Computes junction dots and crossing hops for the wires as currently drawn. */
+function withWiring(edges: Edge[]): Edge[] {
+  const wiring = analyzeWiring(edges.map((e) => ({ id: e.id, net: (e.data as WireData).net, points: (e.data as WireData).points })));
+  const carrier = new Map<string, string>(); // net -> first wire of that net, which draws the net's dots
+  for (const e of edges) if (!carrier.has((e.data as WireData).net)) carrier.set((e.data as WireData).net, e.id);
+  return edges.map((e) => {
+    const d = e.data as WireData;
+    return {
+      ...e,
+      data: {
+        ...d,
+        hops: wiring.hops[e.id] ?? [],
+        dots: wiring.junctions.filter((j) => j.net === d.net && carrier.get(j.net) === e.id).map(({ x, y }) => ({ x, y })),
+      },
+    };
+  });
 }
 
 export interface SchematicViewProps {
@@ -251,11 +256,13 @@ export interface SchematicViewProps {
 function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicViewProps) {
   const [layout, setLayout] = useState<SchematicLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Gates the user dragged: id -> distance moved from the auto-layout position.
+  const [offsets, setOffsets] = useState<Offsets>({});
 
   useEffect(() => {
     let live = true;
     layoutSchematic(netlist).then(
-      (next) => { if (live) { setError(null); setLayout(next); } },
+      (next) => { if (live) { setError(null); setOffsets({}); setLayout(next); } },
       (err: unknown) => { if (live) setError(err instanceof Error ? err.message : String(err)); }
     );
     return () => { live = false; };
@@ -275,7 +282,36 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
     onToggleInput?.(net);
   }, [onToggleInput]);
 
-  const flow = useMemo(() => (layout ? toFlow(layout, values, toggle) : null), [layout, values, toggle]);
+  const flow = useMemo(() => {
+    if (!layout) return null;
+    const base = toFlow(layout, values, toggle);
+    const moved = Object.keys(offsets).length > 0;
+    return {
+      nodes: base.nodes.map((n) => {
+        const o = offsets[n.id];
+        const isInput = (n.data as TerminalData).node?.kind === 'input';
+        return {
+          ...n,
+          draggable: !isInput,
+          position: o ? { x: n.position.x + o.dx, y: n.position.y + o.dy } : n.position,
+        };
+      }),
+      edges: withWiring(
+        moved
+          ? base.edges.map((e) => ({
+              ...e,
+              data: { ...(e.data as WireData), points: rerouteWire((e.data as WireData).points, offsets[e.source], offsets[e.target]) },
+            }))
+          : base.edges
+      ),
+    };
+  }, [layout, values, toggle, offsets]);
+
+  const onNodeDrag = useCallback((_: unknown, node: Node) => {
+    const home = layout?.nodes.find((n) => n.id === node.id);
+    if (!home) return;
+    setOffsets((prev) => ({ ...prev, [node.id]: { dx: node.position.x - home.x, dy: node.position.y - home.y } }));
+  }, [layout]);
 
   if (error) return <div className="sch-empty" role="alert">Could not lay out this circuit: {error}</div>;
   if (!flow || !layout) return <div className="sch-empty">Routing wires…</div>;
@@ -295,7 +331,8 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         fitViewOptions={{ padding: 0.08, maxZoom: 1.15 }}
         minZoom={0.3}
         maxZoom={2}
-        nodesDraggable={false}
+        nodesDraggable
+        onNodeDrag={onNodeDrag}
         nodesConnectable={false}
         elementsSelectable={false}
         zoomOnScroll={false}
@@ -304,8 +341,12 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         panOnScroll={false}
         panOnDrag
         preventScrolling={false}
-        proOptions={{ hideAttribution: true }}
       />
+      {Object.keys(offsets).length > 0 && (
+        <button type="button" className="btn-secondary sch-reset" onClick={() => setOffsets({})}>
+          Reset layout
+        </button>
+      )}
     </div>
   );
 }
@@ -336,7 +377,7 @@ class SchematicErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundary
   render() {
     if (this.state.hasError) {
       return (
-        <div className="sch-empty" role="alert" style={{ color: 'var(--text-2, #a7aebb)' }}>
+        <div className="sch-empty" role="alert">
           Schematic preview could not be rendered: {this.state.message}
         </div>
       );

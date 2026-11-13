@@ -32,9 +32,3 @@ export const IconVerify = (p: IconProps): ReactElement => (
 export const IconArrow = (p: IconProps): ReactElement => (
   <svg {...base} width={16} height={16} {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 );
-export const IconSun = (p: IconProps): ReactElement => (
-  <svg {...base} width={16} height={16} {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" /></svg>
-);
-export const IconMoon = (p: IconProps): ReactElement => (
-  <svg {...base} width={16} height={16} {...p}><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" /></svg>
-);

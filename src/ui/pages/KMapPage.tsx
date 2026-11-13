@@ -125,26 +125,20 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
     navigate('/circuit');
   };
 
-  const groupColors = [
-    'rgba(0, 210, 255, 0.25)',
-    'rgba(16, 185, 129, 0.25)',
-    'rgba(245, 158, 11, 0.25)',
-    'rgba(236, 72, 153, 0.25)',
-    'rgba(168, 85, 247, 0.25)',
-    'rgba(239, 68, 68, 0.25)',
-  ];
+  // Prime-implicant group tints live in index.css (--kmap-group-N) so themes stay in one place.
+  const groupColors = [1, 2, 3, 4, 5, 6].map((n) => `var(--kmap-group-${n})`);
 
   if (!qmResult || !sopResult || !posResult || !qmDetails || !kmapSimpResult) {
     const workerError = workerResult && 'error' in workerResult ? workerResult.error : null;
     return (
-      <div className="page-container">
+      <div className="page-container dp">
         {!embedded && (
           <div className="page-header">
             <h1>K-Map &amp; Quine–McCluskey Minimization</h1>
             <p className="subtitle">Eight-variable minimization runs in the engine Web Worker.</p>
           </div>
         )}
-        <section className="glass-card" role={workerError ? 'alert' : 'status'} aria-busy={!workerError}>
+        <section className="dp-panel" role={workerError ? 'alert' : 'status'} aria-busy={!workerError}>
           {workerError ?? 'Minimizing the current truth table in the background…'}
         </section>
       </div>
@@ -152,7 +146,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container dp">
       {!embedded && (
         <div className="page-header">
           <h1>K-Map & Quine–McCluskey Minimization</h1>
@@ -165,15 +159,15 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
 
       {/* Control Toolbar */}
       <div className="kmap-toolbar">
-        <div className="form-toggle-group">
+        <div className="wb-seg">
           <button
-            className={`btn-toggle ${form === 'SOP' ? 'active' : ''}`}
+            className={form === 'SOP' ? 'is-on' : undefined}
             onClick={() => handleFormChange('SOP')}
           >
             Sum of Products (SOP)
           </button>
           <button
-            className={`btn-toggle ${form === 'POS' ? 'active' : ''}`}
+            className={form === 'POS' ? 'is-on' : undefined}
             onClick={() => handleFormChange('POS')}
           >
             Product of Sums (POS)
@@ -188,16 +182,16 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
           Use don't-cares
         </label>
 
-        <div className="view-toggle-group">
+        <div className="wb-seg">
           <button
-            className={`tab-btn ${activeTab === 'kmap' ? 'active' : ''}`}
+            className={activeTab === 'kmap' ? 'is-on' : undefined}
             onClick={() => setActiveTab('kmap')}
             disabled={!canRenderKMap}
           >
             K-Map View {canRenderKMap ? `(${numVars} vars)` : '(2–5 vars only)'}
           </button>
           <button
-            className={`tab-btn ${activeTab === 'qm' ? 'active' : ''}`}
+            className={activeTab === 'qm' ? 'is-on' : undefined}
             onClick={() => setActiveTab('qm')}
           >
             Quine–McCluskey Tables
@@ -206,7 +200,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
       </div>
 
       {/* Result Hero Banner */}
-      <div className="glass-card result-hero-card">
+      <div className="dp-panel result-hero-card">
         <div className="result-hero-left">
           <div className="hero-tag">Minimized {form} Expression</div>
           <div className="hero-formula">
@@ -235,7 +229,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
       {activeTab === 'kmap' && canRenderKMap && kmapData && kmapGroupData && (
         <div className="kmap-view-layout">
           {/* Visual K-Map Grid */}
-          <div className="glass-card kmap-grid-card">
+          <div className="dp-panel kmap-grid-card">
             <div className="card-header">
               <h3>Gray-Code Map Grid</h3>
               <span className="info-tag">
@@ -306,7 +300,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
           </div>
 
           {/* Grouping Breakdown Sidebar */}
-          <div className="glass-card kmap-groups-card">
+          <div className="dp-panel kmap-groups-card">
             <div className="card-header">
               <h3>Chosen Prime Groups ({kmapGroupData.groups.length})</h3>
               <span className="info-tag">Hover a group to highlight its cells</span>
@@ -366,9 +360,9 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
       )}
 
       {activeTab === 'kmap' && !canRenderKMap && (
-        <div className="glass-card" style={{ padding: '24px', textAlign: 'center' }}>
+        <div className="dp-panel u-pad-5 u-center">
           <h3>K-Map Visualization Unavailable ({minimizationTable.vars.length} Variables)</h3>
-          <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
+          <p className="u-mt-2 u-muted">
             The visual Karnaugh map grid supports 2 to 5 variables.
             Please switch to the <strong>Quine–McCluskey Tables</strong> tab above to view the tabular minimization.
           </p>
@@ -379,7 +373,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
       {activeTab === 'qm' && (
         <div className="qm-view-layout">
           {/* Combining Columns */}
-          <div className="glass-card qm-columns-card">
+          <div className="dp-panel qm-columns-card">
             <div className="card-header">
               <h3>Quine–McCluskey Combining Columns</h3>
               <span className="info-tag">Iterative single-bit adjacency reduction</span>
@@ -403,7 +397,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
           </div>
 
           {/* Prime Implicant Coverage Chart */}
-          <div className="glass-card qm-chart-card">
+          <div className="dp-panel qm-chart-card">
             <div className="card-header">
               <h3>Prime Implicant Coverage Chart</h3>
               <span className="info-tag">Rows: Prime Implicants | Columns: Care Minterms</span>
@@ -469,7 +463,7 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
           <button className="btn-secondary" onClick={() => navigate('/truth-table')}>
             ← Back to Truth Table
           </button>
-          <button className="btn-primary-large" onClick={handleProceedToCircuit}>
+          <button className="btn-primary" onClick={handleProceedToCircuit}>
             Synthesize Circuit Schematic →
           </button>
         </div>

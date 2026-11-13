@@ -116,11 +116,8 @@ export function mapToICs(
       if (!part) throw new Error(`No IC mapping available for ${node.type} flip-flops.`);
       allocate(part, allocations, notes);
       if (node.type === 'T' || node.type === 'SR') {
-        notes.push(`${node.type} flip-flop ${node.id} is implemented using a JK device with additional gates.`);
-        const supportGate = findGateChip('NAND', 2, library);
-        if (!supportGate) throw new Error(`No NAND2 IC is available for ${node.type} flip-flop conversion.`);
-        allocate(supportGate, allocations, notes);
-        allocate(supportGate, allocations, notes);
+        // JK is a superset: T = (J=K=T) and SR = (J=S, K=R) need wiring only, no extra gates.
+        notes.push(`${node.type} flip-flop ${node.id} is implemented with a JK device (inputs wired together; no extra gates).`);
       }
       continue;
     }

@@ -279,7 +279,7 @@ export function kmapGroups(
 
   // Use QM's minimal cover algorithm to pick the minimal set of K-map groups
   const qmResult = quineMcCluskey(tt, form);
-  const qmCoverBits = new Set(qmResult.implicants.map((pi) => pi.bits.join('')));
+  const qmCoverBits = new Map(qmResult.implicants.map((pi) => [pi.bits.join(''), pi]));
 
   const resultGroups: KMapGroup[] = [];
 
@@ -315,7 +315,7 @@ export function kmapGroups(
         colIndices: pg.colIndices,
         implicant: pg.implicant,
         termText,
-        essential: Boolean(pg.implicant.essential),
+        essential: Boolean(qmCoverBits.get(bitStr)?.essential),
         isCornerGroup: pg.isCornerGroup,
         isEdgeWrapRow: pg.isEdgeWrapRow,
         isEdgeWrapCol: pg.isEdgeWrapCol,

@@ -284,14 +284,14 @@ export function CostPowerPage() {
     <div className="page-container dp">
       <PageHead kicker="03 / Cost and power" title="IC Mapping, Cost & Power" sub="Estimate a parts list and compare implementation cost, switching power, and gate count." />
 
-      <div className="p6-tab-row" role="tablist" aria-label="IC cost, power, and comparison">
-        <button role="tab" aria-selected={tab === 'cost'} onClick={() => setTab('cost')}>Cost &amp; Power</button>
-        <button role="tab" aria-selected={tab === 'compare'} onClick={() => setTab('compare')}>Compare implementations</button>
+      <div className="wb-seg" role="tablist" aria-label="IC cost, power, and comparison">
+        <button role="tab" className={tab === 'cost' ? 'is-on' : undefined} aria-selected={tab === 'cost'} onClick={() => setTab('cost')}>Cost &amp; Power</button>
+        <button role="tab" className={tab === 'compare' ? 'is-on' : undefined} aria-selected={tab === 'compare'} onClick={() => setTab('compare')}>Compare implementations</button>
       </div>
 
       {tab === 'cost' ? (
         <>
-          <section className="glass-card p6-library-card">
+          <section className="dp-panel p6-library-card">
             <div className="card-header">
               <h3>Editable 74-series IC library</h3>
               <button type="button" onClick={exportLibrary}>Export JSON</button>
@@ -314,7 +314,7 @@ export function CostPowerPage() {
             </div>
           </section>
 
-          <section className="glass-card">
+          <section className="dp-panel">
             <div className="card-header"><h3>Parts list and package diagram</h3></div>
             {mappingResult.error && <p className="p6-error" role="alert">{mappingResult.error}</p>}
             {!currentNetlist || !report ? (
@@ -341,7 +341,7 @@ export function CostPowerPage() {
             )}
           </section>
 
-          <section className="glass-card">
+          <section className="dp-panel">
             <div className="card-header"><h3>Power estimate</h3></div>
             {dynamicResult.error && <p className="p6-error" role="alert">{dynamicResult.error}</p>}
             <p className="p6-formula"><strong>Dynamic:</strong> P = Σ α × C × Vdd² × f. All results are estimates under the assumptions shown.</p>
@@ -360,7 +360,7 @@ export function CostPowerPage() {
           </section>
         </>
       ) : (
-        <section className="glass-card">
+        <section className="dp-panel">
           <div className="card-header"><h3>Implementation comparison</h3></div>
           {comparisonResult.error && <p className="p6-error" role="alert">{comparisonResult.error}</p>}
           {!comparison ? <p>{currentNetlist?.nodes.some((node) => node.kind === 'block')

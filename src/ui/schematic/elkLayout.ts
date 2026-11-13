@@ -38,6 +38,8 @@ export interface SchematicNode {
   outPins?: Pin[];
 }
 
+import { analyzeWiring, wirePath, type Pt } from './wiring';
+
 export interface SchematicEdge {
   id: string;
   from: string;
@@ -60,6 +62,8 @@ export interface SchematicLayout {
   nodes: SchematicNode[];
   edges: SchematicEdge[];
   junctions: Junction[];
+  /** Per edge id: where that wire hops over a wire of another net. */
+  hops: Record<string, Pt[]>;
   width: number;
   height: number;
 }
@@ -97,8 +101,39 @@ interface Built {
 
 const FIXED_SIDE = { 'elk.portConstraints': 'FIXED_SIDE' };
 
+/**
+ * Gates are laid out in the order they are listed, so list them by where their signals come from:
+ * a gate fed by A and B sits above one fed by D and E. This is what keeps wires short and
+ * crossings few once the inputs themselves are pinned to A, B, C… order.
+ */
+export function orderGates(netlist: Netlist, gates: Gate[]): Gate[] {
+  const driverOf = new Map<string, Gate>();
+  for (const g of gates) driverOf.set(g.output, g);
+  const inputIndex = new Map(netlist.inputs.map((n, i) => [n, i] as const));
+  const memo = new Map<string, number[]>();
+  const sources = (net: string, seen = new Set<string>()): number[] => {
+    const hit = memo.get(net);
+    if (hit) return hit;
+    if (inputIndex.has(net)) return [inputIndex.get(net)!];
+    const g = driverOf.get(net);
+    if (!g || seen.has(net)) return [];
+    seen.add(net);
+    const out = g.inputs.flatMap((i) => sources(i, seen));
+    memo.set(net, out);
+    return out;
+  };
+  const key = (g: Gate) => {
+    const s = sources(g.output);
+    return s.length ? s.reduce((a, b) => a + b, 0) / s.length : Number.MAX_SAFE_INTEGER;
+  };
+  return gates
+    .map((g, i) => ({ g, k: key(g), i }))
+    .sort((a, b) => a.k - b.k || a.i - b.i)
+    .map((x) => x.g);
+}
+
 export function buildElkGraph(netlist: Netlist): Built {
-  const gates = netlist.nodes.filter((n): n is Gate => n.kind === 'gate');
+  const gates = orderGates(netlist, netlist.nodes.filter((n): n is Gate => n.kind === 'gate'));
   const consts = netlist.nodes.filter((n): n is Const => n.kind === 'const');
   const flops = netlist.nodes.filter((n): n is FlipFlop => n.kind === 'ff');
 
@@ -115,7 +150,10 @@ export function buildElkGraph(netlist: Netlist): Built {
       id,
       width: TERMINAL_W,
       height: TERMINAL_H,
-      layoutOptions: { ...FIXED_SIDE, 'elk.layered.layering.layerConstraint': 'FIRST' },
+      layoutOptions: {
+        ...FIXED_SIDE,
+        'elk.layered.layering.layerConstraint': 'FIRST',
+      },
       ports: [{ id: `${id}.out`, layoutOptions: { 'elk.port.side': 'EAST' } }],
     });
     meta.set(id, { id, kind: 'input', label: net, net });
@@ -236,8 +274,14 @@ export function buildElkGraph(netlist: Netlist): Built {
       'elk.direction': 'RIGHT',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.layered.mergeEdges': 'true',
+      // INTERACTIVE keeps the declared order of the inputs (A, B, C…) top to bottom;
+      // LAYER_SWEEP reshuffled them to save a crossing or two, which read as random to students.
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.layered.crossingMinimization.semiInteractive': 'false',
+      'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+      'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
+      // The greedy-switch clean-up pass is what finally swaps inputs out of order.
+      'elk.layered.crossingMinimization.greedySwitch.type': 'OFF',
       'elk.layered.thoroughness': '30',
       'elk.layered.spacing.nodeNodeBetweenLayers': '84',
       'elk.layered.spacing.edgeNodeBetweenLayers': '28',
@@ -260,31 +304,6 @@ function getElk(): Promise<ELK> {
   // Dynamic import keeps the ~1 MB ELK bundle out of the initial page load.
   elkInstance ??= import('elkjs/lib/elk.bundled.js').then(({ default: Elk }) => new Elk());
   return elkInstance;
-}
-
-const same = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
-
-/** One dot where two or more wires leave the same pin and then split. */
-export function findJunctions(edges: SchematicEdge[]): Junction[] {
-  const bySource = new Map<string, SchematicEdge[]>();
-  for (const e of edges) {
-    const key = `${e.from}|${e.net}`;
-    bySource.set(key, [...(bySource.get(key) ?? []), e]);
-  }
-  const junctions: Junction[] = [];
-  for (const group of bySource.values()) {
-    if (group.length < 2) continue;
-    let common = 0;
-    const first = group[0].points;
-    while (
-      common < first.length &&
-      group.every((e) => common < e.points.length && same(e.points[common], first[common]))
-    ) common++;
-    const at = first[Math.max(0, common - 1)];
-    junctions.push({ x: at.x, y: at.y, net: group[0].net });
-  }
-  return junctions;
 }
 
 export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout> {
@@ -327,10 +346,12 @@ export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout
     }];
   });
 
+  const wiring = analyzeWiring(edges.map((e) => ({ id: e.id, net: e.net, points: e.points })));
   return {
     nodes,
     edges,
-    junctions: findJunctions(edges),
+    junctions: wiring.junctions,
+    hops: wiring.hops,
     width: laid.width ?? 0,
     height: laid.height ?? 0,
   };
@@ -419,7 +440,7 @@ export function renderSchematicToSvg(layout: SchematicLayout): string {
 
   // 1. Wires
   for (const edge of layout.edges) {
-    const d = roundedPath(edge.points, 4);
+    const d = wirePath(edge.points, layout.hops[edge.id], 4);
     out += `<path d="${d}" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
   }
 

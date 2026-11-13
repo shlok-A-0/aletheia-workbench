@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChatPanel } from './ui/ChatPanel';
-import { IconMoon, IconSun } from './ui/workbench/icons';
-import { useStore } from './store';
-import { loadLastProject, saveLastProject } from './store/project';
+import { restoreError, useStore } from './store';
+import { saveLastProject } from './store/project';
 import './App.css';
 import './ui/shell.css';
 import './ui/deep/deep.css';
@@ -27,29 +26,9 @@ const navItems: NavItem[] = [
   { path: '/help', label: 'Learn', title: 'Concept guide' },
 ];
 
-type Theme = 'light' | 'dark';
-
-function readTheme(): Theme {
-  try {
-    // Dark is the default; only an explicit saved choice of light overrides it.
-    return window.localStorage.getItem('ldam:theme') === 'light' ? 'light' : 'dark';
-  } catch {
-    return 'dark';
-  }
-}
-
 export const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>(readTheme);
-  const [persistenceError, setPersistenceError] = useState<string | null>(() => {
-    try {
-      const savedProject = loadLastProject();
-      if (savedProject) useStore.setState(savedProject);
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-  });
+  const [persistenceError, setPersistenceError] = useState<string | null>(restoreError);
   const location = useLocation();
 
   const currentNav = navItems.find((item) => item.path === location.pathname);
@@ -78,22 +57,9 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    try {
-      window.localStorage.setItem('ldam:theme', next);
-    } catch (error) {
-      setPersistenceError(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   return (
     <div className="shell">
+      <a className="skip-link" href="#main">Skip to content</a>
       <header className="shell-top">
         <NavLink to="/" end className="shell-brand" aria-label="Aletheia workbench home">
           ALETHEIA <i>[DOT]</i> LOGIC
@@ -110,15 +76,6 @@ export const App: React.FC = () => {
         <div className="shell-actions">
           <button
             type="button"
-            className="shell-icon-btn"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Theme: ${theme}`}
-          >
-            {theme === 'dark' ? <IconSun /> : <IconMoon />}
-          </button>
-          <button
-            type="button"
             className={`shell-ai ${chatOpen ? 'is-open' : ''}`}
             onClick={() => setChatOpen(!chatOpen)}
             aria-expanded={chatOpen}
@@ -129,7 +86,7 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="shell-main">
+      <main id="main" className="shell-main" tabIndex={-1}>
         <Outlet />
       </main>
 

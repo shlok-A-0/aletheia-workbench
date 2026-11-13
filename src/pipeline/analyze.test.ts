@@ -63,10 +63,10 @@ describe('live pipeline', () => {
     expect(blank).toMatchObject({ ok: false, empty: true });
   });
 
-  it('refuses more than 6 variables inline, with a pointer to Advanced input', () => {
+  it('does not minimise more than 6 variables inline; they are handed to the background worker', () => {
     const out = analyzeSource(expr('A+B+C+D+E+F+G'));
     expect(out.ok).toBe(false);
-    if (!out.ok) expect(out.error).toMatch(/Advanced input/);
+    if (!out.ok) expect(out.error).toMatch(/background/);
   });
 
   it("shows terms alphabetically, so A'B + C stays A'B + C", () => {

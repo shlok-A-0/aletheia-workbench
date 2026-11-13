@@ -283,6 +283,12 @@ function findTrueMinimumCost(tt: TruthTable): { termCount: number; literalCount:
     }
   });
 
+  it('marks K-map groups that are essential prime implicants', () => {
+    const tt = truthTableFromMinterms(['A', 'B', 'C', 'D'], [0, 2, 8, 10]);
+    const { groups } = kmapGroups(tt, 'SOP');
+    expect(groups[0].essential).toBe(true);
+  });
+
   // Golden Test 8: Wrap-around: 4-corner group for F = B'D' (minterms 0, 2, 8, 10)
   it('Golden Test 8: Torus wrap-around detects 4-corner group for minterms 0, 2, 8, 10', () => {
     const tt = truthTableFromMinterms(['A', 'B', 'C', 'D'], [0, 2, 8, 10]);

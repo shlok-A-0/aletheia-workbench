@@ -10,6 +10,8 @@ export interface TimedSimulationOptions {
   defaultGateDelay: number;
   clkToQ: number;
   endTime: number;
+  /** Time of the first rising edge (default 0). A non-zero offset keeps the first edge away from t = 0, when inputs are still settling. */
+  clockOffset?: number;
 }
 
 interface ScheduledEvent {
@@ -124,7 +126,7 @@ export function simulateTimed(
   }
 
   const highTime = opts.clockPeriod * opts.duty;
-  for (let rise = 0; rise <= opts.endTime; rise += opts.clockPeriod) {
+  for (let rise = opts.clockOffset ?? 0; rise <= opts.endTime; rise += opts.clockPeriod) {
     schedule({
       t: rise,
       kind: 'clock',
@@ -365,11 +367,13 @@ export function checkSetupHold(
         for (let i = 1; i < waveform.time.length; i++) {
           if (signal.values[i] === signal.values[i - 1]) continue;
           const delta = waveform.time[i] - edge.t;
-          if (delta <= 0 && -delta <= limits.setup) {
+          // Data must be stable for `setup` before the edge and for `hold` after it; changing exactly
+          // that long before/after is legal, so the comparisons are strict.
+          if (delta <= 0 && -delta < limits.setup) {
             violations.push({ ff: ff.id, t: edge.t, kind: 'setup' });
             break;
           }
-          if (delta > 0 && delta <= limits.hold) {
+          if (delta > 0 && delta < limits.hold) {
             violations.push({ ff: ff.id, t: edge.t, kind: 'hold' });
             break;
           }

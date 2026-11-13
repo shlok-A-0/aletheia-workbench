@@ -28,8 +28,10 @@ export interface Source {
   numVars: number;
 }
 
-/** Inline minimisation stays instant up to this many variables. */
+/** Inline minimisation stays instant up to this many variables; larger functions go to the engine worker. */
 export const MAX_INLINE_VARS = 6;
+/** The engine's hard ceiling (a 256-row table). */
+export const MAX_VARS = 8;
 
 export interface Analysis {
   vars: string[];
@@ -101,6 +103,17 @@ export function tidyTerms(text: string): string {
     .join(' + ');
 }
 
+/** Minimised result → full analysis (tidy text, every circuit variant). */
+export function finishAnalysis(
+  table: TruthTable,
+  expr: Expr | null,
+  form: 'SOP' | 'POS',
+  raw: MinResult
+): Analysis {
+  const min = { ...raw, text: tidyTerms(raw.text) };
+  return { vars: table.vars, table, expr, form, min, netlists: buildNetlists(min, expr) };
+}
+
 /** Table → minimised result → circuits. Shared by typed input and table edits. */
 export function analyzeTable(
   table: TruthTable,
@@ -111,22 +124,22 @@ export function analyzeTable(
     return {
       ok: false,
       empty: false,
-      error: `Live mode handles up to ${MAX_INLINE_VARS} variables. Use Advanced input for ${table.vars.length}.`,
+      error: `Functions of more than ${MAX_INLINE_VARS} variables are solved in the background (${table.vars.length} here).`,
     };
   }
   try {
-    const raw = quineMcCluskey(table, form);
-    const min = { ...raw, text: tidyTerms(raw.text) };
-    return {
-      ok: true,
-      analysis: { vars: table.vars, table, expr, form, min, netlists: buildNetlists(min, expr) },
-    };
+    return { ok: true, analysis: finishAnalysis(table, expr, form, quineMcCluskey(table, form)) };
   } catch (error) {
     return { ok: false, empty: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
-export function analyzeSource(source: Source): AnalysisOutcome {
+type ParsedSource =
+  | { ok: true; table: TruthTable; expr: Expr | null }
+  | { ok: false; error: string; empty: boolean };
+
+/** Typed input → truth table (cheap, even at 8 variables). */
+export function parseSource(source: Source): ParsedSource {
   const text = source.text.trim();
   if (!text) return { ok: false, error: '', empty: true };
   try {
@@ -134,20 +147,71 @@ export function analyzeSource(source: Source): AnalysisOutcome {
       const expr = parseExpr(text);
       const found = collectVars(expr);
       const vars = found.length > 0 ? found : ['A'];
-      if (vars.length > 8) throw new Error('The engine supports at most 8 variables.');
-      return analyzeTable(truthTableFromExpr(expr, vars), expr);
+      if (vars.length > MAX_VARS) throw new Error(`The engine supports at most ${MAX_VARS} variables.`);
+      return { ok: true, table: truthTableFromExpr(expr, vars), expr };
     }
-    const vars = ALPHABET.slice(0, source.numVars).split('');
+    const vars = ALPHABET.slice(0, Math.min(source.numVars, MAX_VARS)).split('');
     const care = parseIndexList(text);
     const dontCares = parseIndexList(source.dontCares);
     const table = source.mode === 'minterms'
       ? truthTableFromMinterms(vars, care, dontCares)
       : truthTableFromMaxterms(vars, care, dontCares);
-    return analyzeTable(table, null);
+    return { ok: true, table, expr: null };
   } catch (error) {
     const message = error instanceof ParseError || error instanceof Error ? error.message : String(error);
-    return { ok: false, empty: false, error: message };
+    return { ok: false, error: message, empty: false };
   }
+}
+
+export function analyzeSource(source: Source): AnalysisOutcome {
+  const parsed = parseSource(source);
+  return parsed.ok ? analyzeTable(parsed.table, parsed.expr) : parsed;
+}
+
+/** True when this input is too big to minimise on the UI thread. */
+export function needsWorker(parsed: ParsedSource): boolean {
+  return parsed.ok && parsed.table.vars.length > MAX_INLINE_VARS;
+}
+
+export type Minimizer = (table: TruthTable, form: 'SOP' | 'POS') => Promise<MinResult>;
+
+/** The worker-backed minimiser (loaded lazily so the worker only starts when a large function is typed). */
+const workerMinimizer: Minimizer = async (table, form) => {
+  const { getEngineWorker } = await import('../workers/useEngineWorker');
+  return getEngineWorker().minimize(table, form);
+};
+
+/** Large-function path: parse is instant, the Quine–McCluskey solve runs off the UI thread. */
+export async function analyzeLarge(
+  table: TruthTable,
+  expr: Expr | null,
+  minimize: Minimizer = workerMinimizer,
+  form: 'SOP' | 'POS' = 'SOP'
+): Promise<AnalysisOutcome> {
+  try {
+    return { ok: true, analysis: finishAnalysis(table, expr, form, await minimize(table, form)) };
+  } catch (error) {
+    return { ok: false, empty: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+let recomputeSeq = 0;
+
+/**
+ * Re-solve an edited table (cell edit, SOP/POS switch) and write the result to the store.
+ * Small functions apply synchronously; large ones are solved in the worker, and a result that
+ * has been overtaken by a newer edit is dropped.
+ */
+export function recompute(table: TruthTable, expr: Expr | null, form: 'SOP' | 'POS' = 'SOP'): void {
+  const id = ++recomputeSeq;
+  if (table.vars.length <= MAX_INLINE_VARS) {
+    const out = analyzeTable(table, expr, form);
+    if (out.ok) applyAnalysis(out.analysis, null);
+    return;
+  }
+  void analyzeLarge(table, expr, undefined, form).then((out) => {
+    if (id === recomputeSeq && out.ok) applyAnalysis(out.analysis, null);
+  });
 }
 
 /** Write a successful analysis into the store in one atomic update. */

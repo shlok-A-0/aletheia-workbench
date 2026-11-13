@@ -1,7 +1,7 @@
 import { useStore } from '../../store';
 import { dontCaresOf, maxtermsOf, mintermsOf } from '../../engine/boolean';
 import type { TruthTable } from '../../engine/types';
-import { analyzeTable, applyAnalysis } from '../../pipeline/analyze';
+import { recompute } from '../../pipeline/analyze';
 import { Section } from './Section';
 
 type Out = 0 | 1 | 'x';
@@ -19,8 +19,7 @@ export function TruthSection() {
     );
     const next: TruthTable = { vars: [...table.vars], rows };
     // Editing a cell makes the typed expression stale, so the table becomes the source.
-    const out = analyzeTable(next, null);
-    if (out.ok) applyAnalysis(out.analysis, null);
+    recompute(next, null);
   };
 
   return (

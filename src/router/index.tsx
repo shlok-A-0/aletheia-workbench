@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
-import { PageErrorBoundary } from '../ui/PageErrorBoundary';
+import { RouteGuard } from '../ui/PageErrorBoundary';
 import { Workbench } from '../ui/workbench/Workbench';
 import {
   InputPage,
@@ -11,11 +11,10 @@ import {
   CostPowerPage,
   FaultsPage,
   DashboardPage,
-  SelfTestPage,
   HelpPage,
 } from '../ui/pages';
 
-const guard = (node: ReactNode) => <PageErrorBoundary>{node}</PageErrorBoundary>;
+const guard = (node: ReactNode) => <RouteGuard>{node}</RouteGuard>;
 
 /**
  * `/` is the continuous workbench (define → table → simplify → circuit → verify).
@@ -45,7 +44,6 @@ export const router = createBrowserRouter([
       { path: 'cost-power', element: guard(<CostPowerPage />) },
       { path: 'faults', element: guard(<FaultsPage />) },
       { path: 'dashboard', element: guard(<DashboardPage />) },
-      { path: 'selftest', element: guard(<SelfTestPage />) },
       { path: 'help', element: guard(<HelpPage />) },
     ],
   },

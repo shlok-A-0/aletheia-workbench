@@ -86,7 +86,7 @@ describe('POST /api/chat', () => {
 
   it('keys the limit on the forwarded client address, not the proxy', async () => {
     const adapter = mockAdapter();
-    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1 }, async (baseUrl) => {
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1, trustProxy: true }, async (baseUrl) => {
       const send = (ip: string) => fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
@@ -95,6 +95,19 @@ describe('POST /api/chat', () => {
       expect((await send('203.0.113.1')).status).toBe(200);
       expect((await send('203.0.113.1')).status).toBe(429);
       expect((await send('203.0.113.2')).status).toBe(200);
+    });
+  });
+
+  it('ignores a spoofed forwarded address unless the proxy is trusted', async () => {
+    const adapter = mockAdapter();
+    await withServer({ adapter, apiKey: 'test-secret', rateLimit: 1, trustProxy: false }, async (baseUrl) => {
+      const send = (ip: string) => fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+        body: JSON.stringify(validRequest),
+      });
+      expect((await send('203.0.113.1')).status).toBe(200);
+      expect((await send('203.0.113.2')).status).toBe(429);
     });
   });
 
@@ -193,6 +206,24 @@ describe('POST /api/chat', () => {
         headers: { origin: 'https://attacker.invalid' },
       });
       expect(denied.status).toBe(403);
+    });
+  });
+
+  it('accepts several configured origins and same-origin requests, and rejects other POSTs', async () => {
+    await withServer({ adapter: mockAdapter(), apiKey: 'test-secret', clientOrigin: 'http://localhost:5173, http://127.0.0.1:5173' }, async (baseUrl) => {
+      const loopback = await fetch(`${baseUrl}/api/chat`, { method: 'OPTIONS', headers: { origin: 'http://127.0.0.1:5173' } });
+      expect(loopback.status).toBe(204);
+      expect(loopback.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:5173');
+
+      const same = await fetch(`${baseUrl}/api/chat`, { method: 'OPTIONS', headers: { origin: baseUrl } });
+      expect(same.status).toBe(204);
+
+      const foreignPost = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { origin: 'https://attacker.invalid', 'content-type': 'application/json' },
+        body: JSON.stringify(validRequest),
+      });
+      expect(foreignPost.status).toBe(403);
     });
   });
 });

@@ -89,6 +89,7 @@ export function FaultsPage() {
 
   const discrepancy = useMemo(() => {
     if (!netlist || !fault) return null;
+    if (netlist.nodes.some((node) => node.kind === 'ff')) return { sequential: true as const };
     try {
       const inputMap = Object.fromEntries(inputs.map((net, index) => [net, normalizedVector[index]]));
       const good = simulateWithFault(netlist, { net: '', stuckAt: 0 }, inputMap);
@@ -111,7 +112,7 @@ export function FaultsPage() {
     return (
       <div className="page-container dp">
         <PageHead kicker="05 / Faults" title="Fault Testing & Test Vectors" sub="Detect stuck-at faults and find a compact set of test vectors." />
-        <section className="glass-card dp-empty"><p>Nothing to test yet. Define a function and its circuit appears here.</p><Link className="btn-primary" to="/">Open the workbench</Link></section>
+        <section className="dp-panel dp-empty"><p>Nothing to test yet. Define a function and its circuit appears here.</p><Link className="btn-primary" to="/">Open the workbench</Link></section>
       </div>
     );
   }
@@ -120,28 +121,39 @@ export function FaultsPage() {
     <div className="page-container dp">
       <PageHead kicker="05 / Faults" title="Fault Testing & Test Vectors" sub="Stuck-at-0/1 injection, output discrepancy, fault coverage, and greedy test-set reduction." />
       {reportResult.error && <p className="p6-error" role="alert">{reportResult.error}</p>}
-      {reportResult.loading && <p className="glass-card" role="status" aria-busy="true">Running the fault analysis in the engine Web Worker…</p>}
+      {reportResult.loading && <p className="dp-panel" role="status" aria-busy="true">Running the fault analysis in the engine Web Worker…</p>}
       {report && (
         <>
-          <section className="glass-card">
-            <div className="card-header"><h3>Inject a stuck-at fault</h3></div>
-            <div className="p6-control-grid fault-controls">
-              <label>Fault site
+          <section className="dp-panel">
+            <div className="dp-panel-head">
+              <div>
+                <h3 className="dp-h2">Inject a stuck-at fault</h3>
+                <p className="dp-muted">
+                  A stuck-at fault pretends one wire is welded to 0 or 1. Fault sites are every input and every gate
+                  output, because any of those wires can fail. Pick a site and an input pattern: if the output differs
+                  from the healthy circuit, that pattern detects the fault.
+                </p>
+              </div>
+            </div>
+            <div className="dp-toolbar">
+              <label className="dp-field">
+                <span className="t-label">Fault site</span>
                 <select value={fault?.net ?? selectedNet} onChange={(event) => setSelectedNet(event.target.value)}>
                   {report.table.filter((entry) => entry.stuckAt === 0).map((entry) => <option key={entry.net} value={entry.net}>{entry.net}</option>)}
                 </select>
               </label>
-              <fieldset>
-                <legend>Stuck value</legend>
-                {[0, 1].map((value) => (
-                  <label key={value}><input type="radio" name="stuck-at-value" checked={stuckAt === value}
-                    onChange={() => setStuckAt(value as 0 | 1)} /> SA{value}</label>
-                ))}
+              <fieldset className="dp-field dp-radios">
+                <legend className="t-label">Stuck value</legend>
+                <span className="dp-radio-row">
+                  {[0, 1].map((value) => (
+                    <label key={value}><input type="radio" name="stuck-at-value" checked={stuckAt === value}
+                      onChange={() => setStuckAt(value as 0 | 1)} /> SA{value}</label>
+                  ))}
+                </span>
               </fieldset>
-            </div>
-            <div className="fault-vector-editor" aria-label="Fault test inputs">
               {inputs.map((net, index) => (
-                <label key={net}>{net}
+                <label key={net} className="dp-field dp-field--sm">
+                  <span className="t-label">Input {net}</span>
                   <select aria-label={`Input ${net}`} value={normalizedVector[index]}
                     onChange={(event) => updateInput(index, Number(event.target.value) as 0 | 1)}>
                     <option value={0}>0</option><option value={1}>1</option>
@@ -149,7 +161,9 @@ export function FaultsPage() {
                 </label>
               ))}
             </div>
-            {discrepancy && ('error' in discrepancy
+            {discrepancy && ('sequential' in discrepancy
+              ? <p className="dp-note">This design has flip-flops, so a single-vector check would never clock them. Coverage below is measured over a clocked input sequence instead.</p>
+              : 'error' in discrepancy
               ? <p className="p6-error">{discrepancy.error}</p>
               : (
                 <div className="p6-output-comparison">
@@ -165,8 +179,13 @@ export function FaultsPage() {
               ))}
           </section>
 
-          <section className="glass-card">
-            <div className="card-header"><h3>Fault coverage</h3></div>
+          <section className="dp-panel">
+            <div className="dp-panel-head">
+              <div>
+                <h3 className="dp-h2">Fault coverage</h3>
+                <p className="dp-muted">Each row is one fault; a ✓ means that input pattern (column) exposes it at an output. Click a row to inspect it above.</p>
+              </div>
+            </div>
             <div className="p6-stat-grid">
               <div><span>Detected</span><strong>{report.detected} / {report.total}</strong></div>
               <div><span>Coverage</span><strong>{report.coverage.toFixed(1)}%</strong></div>
@@ -209,12 +228,17 @@ export function FaultsPage() {
             </div>
           </section>
 
-          <section className="glass-card">
-            <div className="card-header"><h3>Greedy minimal test set</h3></div>
+          <section className="dp-panel">
+            <div className="dp-panel-head">
+              <div>
+                <h3 className="dp-h2">Greedy minimal test set</h3>
+                <p className="dp-muted">The fewest input patterns that still catch every detectable fault, picked greedily.</p>
+              </div>
+            </div>
             {report.minimalTestSet.length === 0
               ? <p>No detectable faults require test vectors.</p>
-              : <ol className="p6-minimal-vectors">{report.minimalTestSet.map((bits, index) =>
-                  <li key={index}><code>{bits.join('')}</code> <span>({inputs.map((net, bit) => `${net}=${bits[bit]}`).join(', ')})</span></li>
+              : <ol className="dp-vectors">{report.minimalTestSet.map((bits, index) =>
+                  <li key={index} className="dp-bit is-1"><b>{bits.join('')}</b> <span>{inputs.map((net, bit) => `${net}=${bits[bit]}`).join(' ')}</span></li>
                 )}</ol>}
             {report.undetected.length > 0 && (
               <div className="p6-undetected"><strong>Undetectable / redundant faults</strong>

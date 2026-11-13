@@ -39,4 +39,17 @@ describe('buildContext', () => {
     expect(JSON.stringify(context)).not.toContain('not forwarded');
     expect(JSON.stringify(context).length).toBeLessThan(2_000);
   });
+
+  it('terminates when the function expression alone exceeds the size budget', () => {
+    const names = Array.from({ length: 8 }, (_, index) => 'V'.repeat(300) + index);
+    useStore.setState({
+      rawInput: names.join(' + '),
+      inputMode: 'expr',
+      vars: names,
+      truthTable: null,
+      minResult: null,
+    });
+    const context = buildContext(useStore.getState(), '/');
+    expect(JSON.stringify(context).length).toBeLessThan(20_000);
+  });
 });
