@@ -40,7 +40,7 @@ export const SequentialPage: React.FC = () => {
       {activeTab === 'flipflops' && <FlipFlopsTab />}
       {activeTab === 'counters' && <CountersTab />}
       {activeTab === 'fsm' && <FsmTab />}
-      {activeTab === 'analyze' && <AnalyzeTab />}
+      {activeTab === 'analyze' && <AnalyzeTab onGoto={setActiveTab} />}
     </div>
   );
 };

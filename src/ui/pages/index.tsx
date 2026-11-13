@@ -5,5 +5,4 @@ export { TimingPage } from './TimingPage';
 export { CostPowerPage } from './CostPowerPage';
 export { FaultsPage } from './FaultsPage';
 export { DashboardPage } from './DashboardPage';
-export { SelfTestPage } from './SelfTestPage';
 export { HelpPage } from './HelpPage';

@@ -19,8 +19,15 @@ describe('BlocksPage', () => {
     expect(screen.getByText(/Shannon Expansion Selection/i)).toBeInTheDocument();
 
     // Verify MUX options exist for 3 variables
-    expect(screen.getByRole('option', { name: /8:1 MUX \(Full Select\)/i })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /4:1 MUX \(Select: A, B\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /8:1 · 74151/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /4:1 · 74153/i })).toBeInTheDocument();
+
+    // A 4:1 mux on 3 variables lets the student choose which two variables drive the select lines.
+    fireEvent.change(screen.getByLabelText('Size · IC'), { target: { value: '2' } });
+    const lines = screen.getByLabelText('Select lines');
+    expect(screen.getByRole('option', { name: 'A, C' })).toBeInTheDocument();
+    fireEvent.change(lines, { target: { value: '1' } });
+    expect(screen.getByText(/select = \{A, C\}/i)).toBeInTheDocument();
 
     // Switch to Decoder + OR
     fireEvent.change(screen.getByLabelText('Block'), { target: { value: 'decoder' } });
@@ -66,7 +73,8 @@ describe('BlocksPage', () => {
   it('realizes with an active-low decoder + NAND and shows it at gate level', () => {
     useStore.setState({ truthTable: truthTableFromMinterms(['A', 'B', 'C'], [1, 3, 6, 7]) });
     render(<MemoryRouter><BlocksPage /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText('Block'), { target: { value: 'decoder-nand' } });
+    fireEvent.change(screen.getByLabelText('Block'), { target: { value: 'decoder' } });
+    fireEvent.change(screen.getByLabelText('Outputs'), { target: { value: 'nand' } });
     expect(screen.getByText(/Active-low decoder/i, { selector: 'summary ~ * *, h3, b, strong, p, span' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Block diagram' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Gate level' })).toHaveAttribute('aria-pressed', 'true');

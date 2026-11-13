@@ -1,69 +1,51 @@
-import { useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useStore } from '../../../store';
-import type { Netlist } from '../../../engine/types';
-import { syncCounter, modNCounter, johnsonCounter } from '../../../engine/sequential/library';
 import { analyzeCircuit } from '../../../engine/sequential/fsm';
 import { StateDiagramSVG } from './StateDiagram';
 
-export function AnalyzeTab() {
+interface AnalyzeTabProps {
+  /** Lets the empty state send the student to the tab that produces a circuit. */
+  onGoto?: (tab: 'counters' | 'fsm') => void;
+}
+
+/** Reverse-analyses whatever sequential circuit the student last built (Counters or FSM Designer). */
+export function AnalyzeTab({ onGoto }: AnalyzeTabProps) {
   const designedNetlist = useStore((state) => state.designedNetlist);
-  const [analysisNetlistKey, setAnalysisNetlistKey] = useState('current');
-  const [circuitAnalysis, setCircuitAnalysis] = useState<ReturnType<typeof analyzeCircuit> | null>(null);
 
-  const handleRunAnalysis = useCallback(() => {
-    let targetNL: Netlist | null = null;
-    if (analysisNetlistKey === 'current') {
-      targetNL = designedNetlist;
-    } else if (analysisNetlistKey === 'mod6') {
-      targetNL = modNCounter(6);
-    } else if (analysisNetlistKey === 'johnson3') {
-      targetNL = johnsonCounter(3);
-    } else {
-      targetNL = syncCounter(2, 'up', 'JK');
+  const { circuitAnalysis, error } = useMemo(() => {
+    if (!designedNetlist) return { circuitAnalysis: null, error: null };
+    try {
+      return { circuitAnalysis: analyzeCircuit(designedNetlist), error: null };
+    } catch (e) {
+      return { circuitAnalysis: null, error: e instanceof Error ? e.message : 'Analysis failed' };
     }
+  }, [designedNetlist]);
 
-    if (targetNL) {
-      const res = analyzeCircuit(targetNL);
-      setCircuitAnalysis(res);
-    }
-  }, [analysisNetlistKey, designedNetlist]);
+  if (!designedNetlist) {
+    return (
+      <div className="tab-pane-sequential">
+        <div className="dp-panel u-mb-4" role="status">
+          <h3 className="card-title">No circuit to analyze yet</h3>
+          <p className="card-subtitle">
+            This tab works backwards from a flip-flop circuit: it extracts the state table, the next-state equations
+            and any unused or lock-up states. Build a circuit first, then come back.
+          </p>
+          <div className="ff-actions u-mt-3">
+            <button type="button" className="btn-primary" onClick={() => onGoto?.('fsm')}>Design an FSM</button>
+            <button type="button" className="btn-secondary" onClick={() => onGoto?.('counters')}>Build a counter</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
         <div className="tab-pane-sequential">
           <div className="dp-panel u-mb-4">
-            <h3 className="card-title">Select Target Circuit for Analysis</h3>
-            <div className="wb-seg u-mt-2">
-              <button
-                className={analysisNetlistKey === 'current' ? 'is-on' : undefined}
-                onClick={() => setAnalysisNetlistKey('current')}
-              >
-                Synthesized FSM
-              </button>
-              <button
-                className={analysisNetlistKey === 'mod6' ? 'is-on' : undefined}
-                onClick={() => setAnalysisNetlistKey('mod6')}
-              >
-                Mod-6 Counter
-              </button>
-              <button
-                className={analysisNetlistKey === 'johnson3' ? 'is-on' : undefined}
-                onClick={() => setAnalysisNetlistKey('johnson3')}
-              >
-                3-bit Johnson Counter
-              </button>
-              <button
-                className={analysisNetlistKey === 'sync_jk' ? 'is-on' : undefined}
-                onClick={() => setAnalysisNetlistKey('sync_jk')}
-              >
-                2-bit Sync Counter
-              </button>
-            </div>
-            <div className="u-mt-3">
-              <button className="btn-primary" onClick={handleRunAnalysis}>
-                Run Circuit Reverse Analysis
-              </button>
-            </div>
+            <h3 className="card-title">Analyzing: {designedNetlist.name}</h3>
+            <p className="card-subtitle">Extracted from the circuit you last generated. It updates when you generate a new one.</p>
+            {error && <div className="verify-badge fail" role="alert">{error}</div>}
           </div>
 
           {circuitAnalysis && (

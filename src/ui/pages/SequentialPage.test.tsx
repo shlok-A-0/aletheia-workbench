@@ -29,4 +29,13 @@ describe('SequentialPage', () => {
       expect(screen.getByRole('button', { name: tab })).toHaveAttribute('aria-pressed', 'true');
     }
   });
+
+  it('Analyze tab prompts for a circuit instead of offering canned demos, and links to the builders', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Analyze Circuit/ }));
+    expect(screen.getByText(/No circuit to analyze yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Mod-6 Counter/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Design an FSM/i }));
+    expect(screen.getByRole('button', { name: /FSM Designer/ })).toHaveAttribute('aria-pressed', 'true');
+  });
 });

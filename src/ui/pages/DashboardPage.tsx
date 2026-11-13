@@ -275,7 +275,6 @@ export function DashboardPage() {
       <section className="dp-panel dashboard-footer">
         <h2>Continue the workflow</h2>
         <div className="dashboard-links">
-          <Link to="/selftest">Run system self-test</Link>
           <Link to="/help">Browse the concept guide</Link>
           <Link to="/sequential">Analyze sequential logic</Link>
           <Link to="/timing">Explore timing and hazards</Link>

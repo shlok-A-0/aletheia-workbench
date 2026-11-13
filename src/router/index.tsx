@@ -11,7 +11,6 @@ import {
   CostPowerPage,
   FaultsPage,
   DashboardPage,
-  SelfTestPage,
   HelpPage,
 } from '../ui/pages';
 
@@ -45,7 +44,6 @@ export const router = createBrowserRouter([
       { path: 'cost-power', element: guard(<CostPowerPage />) },
       { path: 'faults', element: guard(<FaultsPage />) },
       { path: 'dashboard', element: guard(<DashboardPage />) },
-      { path: 'selftest', element: guard(<SelfTestPage />) },
       { path: 'help', element: guard(<HelpPage />) },
     ],
   },
