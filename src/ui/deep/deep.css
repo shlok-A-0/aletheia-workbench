@@ -460,3 +460,18 @@
 .shell-main .dp .ff-card .card-title { font-size: var(--fs-lg, 1.1rem); }
 .shell-main .dp .ff-card .card-subtitle { margin-top: calc(-1 * var(--space-2)) !important; }
 .shell-main .dp .ff-card .circuit-input-switches { margin-top: 0 !important; }
+
+/* Quine–McCluskey columns: readable previews instead of walls of terms */
+.qm-explain { margin: 0 0 var(--space-4); color: var(--text-2); font-size: var(--fs-sm); line-height: 1.55; max-width: 78ch; }
+.qm-explain code { color: var(--signal-ink); }
+.shell-main .dp .terms-list { max-height: none; overflow: visible; }
+.shell-main .dp .qm-term-row { gap: var(--space-3); white-space: nowrap; }
+.shell-main .dp .term-bits { color: var(--signal-ink); letter-spacing: 0.04em; }
+.shell-main .dp .term-covers { color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+.shell-main .dp .qm-more { align-self: flex-start; }
+.shell-main .dp .qm-column-title { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: var(--track-label); color: var(--text-2); }
+
+.timing-stimulus-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.timing-stimulus-count { color: var(--text-3); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: var(--track-label); }
+.timing-stimulus-details { margin-bottom: var(--space-3); }
+.timing-stimulus-details > summary { cursor: pointer; color: var(--text-2); font-size: var(--fs-sm); padding: var(--space-2) 0; }

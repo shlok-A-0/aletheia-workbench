@@ -323,6 +323,7 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
   return (
     <div className="sch-frame" style={{ height: frame }} data-aspect={aspect.toFixed(2)}>
       <ReactFlow
+        proOptions={{ hideAttribution: true }}
         nodes={flow.nodes}
         edges={flow.edges}
         nodeTypes={nodeTypes}

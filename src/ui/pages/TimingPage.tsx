@@ -513,18 +513,37 @@ export function TimingPage() {
           </div>
           {waveform && <span className="metric-pill">{waveform.signals.length} signals · {waveform.time.length} time points</span>}
         </div>
+        <div className="timing-stimulus-actions">
+          <button type="button" className="btn-secondary" disabled={stimulus.length === 0} onClick={() => {
+            setStimulus([]);
+            setWaveform(null);
+          }}>Clear all changes</button>
+          <button type="button" className="btn-secondary" onClick={() => {
+            const seeded = presetStimulus(preset, clockPeriod, activeNetlist);
+            setStimulus(seeded);
+            setWaveform(null);
+            setError(null);
+          }}>Reset to default</button>
+          <span className="timing-stimulus-count">{stimulus.length} scheduled change{stimulus.length === 1 ? '' : 's'}</span>
+        </div>
         {stimulus.length > 0 && (
-          <div className="timing-stimulus-list" aria-label="Scheduled input changes">
-            {stimulus.map((item, index) => (
-              <span className="timing-stimulus-chip" key={`${item.net}-${item.t}-${index}`}>
-                t={item.t}: {item.net}={item.value}
-                <button aria-label={`Remove ${item.net} change at tick ${item.t}`} onClick={() => {
-                  setStimulus(stimulus.filter((_, itemIndex) => itemIndex !== index));
-                  setWaveform(null);
-                }}>×</button>
-              </span>
-            ))}
-          </div>
+          <details className="timing-stimulus-details">
+            <summary>Show scheduled changes</summary>
+            <div className="timing-stimulus-list" aria-label="Scheduled input changes">
+              {Array.from(new Set(stimulus.map((item) => item.t))).map((t) => {
+                const group = stimulus.filter((item) => item.t === t);
+                return (
+                  <span className="timing-stimulus-chip" key={t}>
+                    t={t}: {group.map((item) => `${item.net}=${item.value}`).join(' ')}
+                    <button aria-label={`Remove input changes at tick ${t}`} onClick={() => {
+                      setStimulus(stimulus.filter((item) => item.t !== t));
+                      setWaveform(null);
+                    }}>×</button>
+                  </span>
+                );
+              })}
+            </div>
+          </details>
         )}
         {internalCount > 0 && (
           <div className="dp-note timing-internal">
