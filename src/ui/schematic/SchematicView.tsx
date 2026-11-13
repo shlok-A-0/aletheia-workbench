@@ -341,7 +341,6 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         panOnScroll={false}
         panOnDrag
         preventScrolling={false}
-        proOptions={{ hideAttribution: true }}
       />
       {Object.keys(offsets).length > 0 && (
         <button type="button" className="btn-secondary sch-reset" onClick={() => setOffsets({})}>

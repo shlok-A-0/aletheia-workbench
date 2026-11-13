@@ -1,7 +1,6 @@
 import type { Netlist } from '../types';
 import { DEFAULT_IC_LIBRARY, mapToICs, type ICLibrary } from './ic-map';
 import { activityFromSequence, dynamicPower, staticPower, transistorCount, type DynamicPowerOptions } from './power';
-import { toNandOnly, toNorOnly } from '../circuit/generate';
 
 export interface ComparisonVariant {
   name: string;
@@ -110,16 +109,4 @@ export function compare(
     rows,
     best: { gates, ics, ...(cost ? { cost } : {}), ...(power ? { power } : {}) },
   };
-}
-
-export function standardVariants(
-  original: Netlist,
-  simplified: Netlist
-): ComparisonVariant[] {
-  return [
-    { name: 'Original', netlist: original },
-    { name: 'Simplified', netlist: simplified },
-    { name: 'NAND', netlist: toNandOnly(simplified) },
-    { name: 'NOR', netlist: toNorOnly(simplified) },
-  ];
 }

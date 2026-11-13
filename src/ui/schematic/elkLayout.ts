@@ -38,7 +38,7 @@ export interface SchematicNode {
   outPins?: Pin[];
 }
 
-import { analyzeWiring, findJunctionDots, wirePath, type Pt } from './wiring';
+import { analyzeWiring, wirePath, type Pt } from './wiring';
 
 export interface SchematicEdge {
   id: string;
@@ -304,43 +304,6 @@ function getElk(): Promise<ELK> {
   // Dynamic import keeps the ~1 MB ELK bundle out of the initial page load.
   elkInstance ??= import('elkjs/lib/elk.bundled.js').then(({ default: Elk }) => new Elk());
   return elkInstance;
-}
-
-/** One dot at every point where a net splits (see wiring.ts for the rules). */
-export function findJunctions(edges: SchematicEdge[]): Junction[] {
-  return findJunctionDots(edges.map((e) => ({ id: e.id, net: e.net, points: e.points })));
-}
-
-/**
- * ELK shuffles the first column to cut crossings, which leaves inputs as A, C, D, B, E.
- * Students read a schematic top-down in variable order, so put the input nodes back into
- * the declared order, reusing the same vertical slots, and slide each input's wires with it.
- */
-export function orderInputs(nodes: SchematicNode[], edges: SchematicEdge[], order: string[]): void {
-  const inputs = nodes.filter((n) => n.kind === 'input');
-  const slots = inputs.map((n) => n.y).sort((a, b) => a - b);
-  const wanted = [...inputs].sort((a, b) => order.indexOf(a.net) - order.indexOf(b.net));
-  const shift = new Map<string, number>();
-  wanted.forEach((n, i) => shift.set(n.id, slots[i] - n.y));
-  for (const e of edges) {
-    const dy = shift.get(e.from) ?? 0;
-    if (dy === 0) continue;
-    const pts = e.points;
-    const oldY = pts[0].y;
-    if (pts.length >= 3 && Math.abs(pts[1].y - oldY) < 0.5) {
-      pts[0] = { x: pts[0].x, y: oldY + dy };
-      pts[1] = { x: pts[1].x, y: oldY + dy };
-    } else {
-      // Straight wire: add an elbow so it still ends on its original pin.
-      const end = pts[pts.length - 1];
-      const midX = (pts[0].x + end.x) / 2;
-      e.points = [{ x: pts[0].x, y: oldY + dy }, { x: midX, y: oldY + dy }, { x: midX, y: end.y }, end];
-    }
-  }
-  for (const n of inputs) {
-    const dy = shift.get(n.id) ?? 0;
-    n.y += dy;
-  }
 }
 
 export async function layoutSchematic(netlist: Netlist): Promise<SchematicLayout> {
