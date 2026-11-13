@@ -72,7 +72,25 @@ function getPresetNetlist(
   }
 }
 
-function presetStimulus(preset: Preset, period: number): StimulusEvent[] {
+/** Counts a combinational circuit through every input combination, one per clock period, so the waveform is never flat. */
+function countThroughInputs(netlist: Netlist, period: number): StimulusEvent[] {
+  const n = netlist.inputs.length;
+  const events: StimulusEvent[] = [];
+  const last = new Map<string, 0 | 1>();
+  for (let i = 0; i < 1 << n; i++) {
+    netlist.inputs.forEach((name, bit) => {
+      const value = ((i >> (n - 1 - bit)) & 1) as 0 | 1;
+      if (value !== (last.get(name) ?? 0)) events.push({ t: i * period, net: name, value });
+      last.set(name, value);
+    });
+  }
+  return events;
+}
+
+function presetStimulus(preset: Preset, period: number, netlist: Netlist | null = null): StimulusEvent[] {
+  if (preset === 'current' && netlist && !netlist.nodes.some((node) => node.kind === 'ff') && netlist.inputs.length <= 4) {
+    return countThroughInputs(netlist, period);
+  }
   if (preset === 'hazard') {
     return [
       { t: 0, net: 'A', value: 1 },
@@ -128,10 +146,12 @@ export function TimingPage() {
     setTotalDuration,
   } = useStore();
   const [preset, setPreset] = useState<Preset>(() => {
-    const initialNetlist = useStore.getState().netlists.simplified
-      ?? useStore.getState().netlists.original;
-    return initialNetlist?.name.includes('hazard') ? 'hazard' : 'counter';
+    const st = useStore.getState();
+    const initialNetlist = st.netlists.simplified ?? st.netlists.original ?? st.designedNetlist;
+    if (initialNetlist?.name.includes('hazard')) return 'hazard';
+    return initialNetlist ? 'current' : 'counter';
   });
+  const [showInternal, setShowInternal] = useState(false);
   const [duty, setDuty] = useState(DEFAULTS.duty);
   const [edge, setEdge] = useState<'rising' | 'falling'>(DEFAULTS.edge);
   const [gateDelay, setGateDelay] = useState(DEFAULTS.gateDelay);
@@ -146,6 +166,7 @@ export function TimingPage() {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef(0);
+  const pendingSeed = useRef(false);
   const setWaveform = (value: Waveform | null) => {
     setLocalWaveform(value);
     updateStoredWaveform(value);
@@ -237,9 +258,35 @@ export function TimingPage() {
     playheadRef.current = 0;
     setPlayhead(0);
     setWaveform(null);
-    setStimulus(presetStimulus(nextPreset, clockPeriod));
+    const nl = getPresetNetlist(nextPreset, currentNetlist, designedNetlist);
+    const seeded = presetStimulus(nextPreset, clockPeriod, nl);
+    setStimulus(seeded);
+    if (seeded.length > 0) setTotalDuration(Math.max(totalDuration, (seeded.at(-1)?.t ?? 0) + clockPeriod * 2));
     setError(null);
   };
+
+  // Opening the page on the student's own combinational circuit: seed a stimulus once so there is something to see.
+  useEffect(() => {
+    if (preset === 'current' && stimulus.length === 0 && activeNetlist) {
+      const seeded = presetStimulus('current', clockPeriod, activeNetlist);
+      if (seeded.length > 0) {
+        pendingSeed.current = true;
+        setStimulus(seeded);
+        setTotalDuration(Math.max(totalDuration, (seeded.at(-1)?.t ?? 0) + clockPeriod * 2));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Simulate automatically whenever there is a circuit but no waveform (first visit, preset change, edited stimulus).
+  useEffect(() => {
+    if (pendingSeed.current) {
+      pendingSeed.current = false;
+      return;
+    }
+    if (!waveform && activeNetlist && !error) runSimulation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waveform, activeNetlist, error, stimulus]);
 
   const addInputChange = (net: NetId, event: MouseEvent<SVGRectElement>) => {
     if (!waveform || !activeNetlist?.inputs.includes(net)) return;
@@ -316,11 +363,13 @@ export function TimingPage() {
     input: 'Inputs',
     state: 'State',
     output: 'Outputs',
-    internal: 'Internal signals',
+    internal: 'Internal (between gates)',
   };
   const rowLayout: { name: string; group: SignalGroup; y: number }[] = [];
   let nextY = 34;
   for (const group of groupOrder) {
+        if (group === 'internal' && !showInternal) continue;
+    if (group === 'clock' && activeFlops.length === 0) continue;
     const groupSignals = (waveform?.signals ?? []).filter((signal) => signal.group === group);
     if (groupSignals.length === 0) continue;
     nextY += 20;
@@ -335,7 +384,8 @@ export function TimingPage() {
   const cursorIndex = waveform
     ? Math.max(0, waveform.time.findLastIndex((time) => time <= playhead))
     : 0;
-  const cursorValues = waveform?.signals.map((signal) => ({
+  const internalCount = waveform?.signals.filter((signal) => signal.group === 'internal').length ?? 0;
+  const cursorValues = waveform?.signals.filter((signal) => (showInternal || signal.group !== 'internal') && (activeFlops.length > 0 || signal.group !== 'clock')).map((signal) => ({
     name: signal.name,
     value: signalValue(signal, cursorIndex),
   })) ?? [];
@@ -345,49 +395,20 @@ export function TimingPage() {
       <PageHead kicker="02 / Timing" title="Timing Diagrams & Hazards" sub="Clock edges, propagation delay, setup and hold, and visible logic hazards." />
 
       <section className="dp-panel timing-controls">
-        <div className="timing-control-grid">
-          <label>Preset
-            <select value={preset} onChange={(event) => handlePresetChange(event.target.value as Preset)}>
-              <option value="counter">2-bit JK counter</option>
-              <option value="detector">Sequence detector 1011</option>
-              <option value="shift">3-bit SIPO shift register</option>
-              <option value="hazard">Hazard demo</option>
-              <option value="current">Current circuit / FSM</option>
+        <div className="dp-toolbar">
+          <label className="dp-field">
+            <span className="t-label">Circuit</span>
+            <select aria-label="Preset" value={preset} onChange={(event) => handlePresetChange(event.target.value as Preset)}>
+              <option value="current" disabled={!currentNetlist && !designedNetlist}>
+                {currentNetlist || designedNetlist ? `Your circuit · ${(currentNetlist ?? designedNetlist)?.name}` : 'Your circuit (generate one first)'}
+              </option>
+              <optgroup label="Examples">
+                <option value="counter">2-bit JK counter</option>
+                <option value="detector">Sequence detector 1011</option>
+                <option value="shift">3-bit SIPO shift register</option>
+                <option value="hazard">Hazard demo</option>
+              </optgroup>
             </select>
-          </label>
-          <label>Clock period (ticks)
-            <input type="number" min="2" step="1" value={clockPeriod}
-              onChange={(event) => setClockPeriod(Math.max(2, Number(event.target.value) || 2))} />
-          </label>
-          <label>Duty cycle (%)
-            <input type="number" min="1" max="99" step="1" value={duty}
-              onChange={(event) => setDuty(Math.min(99, Math.max(1, Number(event.target.value) || 50)))} />
-          </label>
-          <label>Active edge
-            <select value={edge} onChange={(event) => setEdge(event.target.value as 'rising' | 'falling')}>
-              <option value="rising">Rising</option>
-              <option value="falling">Falling</option>
-            </select>
-          </label>
-          <label>Default gate delay
-            <input type="number" min="0" step="1" value={gateDelay}
-              onChange={(event) => setGateDelay(Math.max(0, Number(event.target.value) || 0))} />
-          </label>
-          <label>Clock-to-Q delay
-            <input type="number" min="0" step="1" value={clkToQ}
-              onChange={(event) => setClkToQ(Math.max(0, Number(event.target.value) || 0))} />
-          </label>
-          <label>Run length (ticks)
-            <input type="number" min="1" max="1000" step="1" value={totalDuration}
-              onChange={(event) => setTotalDuration(Math.min(1000, Math.max(1, Number(event.target.value) || 1)))} />
-          </label>
-          <label>Setup / hold (ticks)
-            <span className="timing-window-inputs">
-              <input aria-label="Setup ticks" type="number" min="0" value={setup}
-                onChange={(event) => setSetup(Math.max(0, Number(event.target.value) || 0))} />
-              <input aria-label="Hold ticks" type="number" min="0" value={hold}
-                onChange={(event) => setHold(Math.max(0, Number(event.target.value) || 0))} />
-            </span>
           </label>
         </div>
         <div className="timing-action-row">
@@ -408,24 +429,61 @@ export function TimingPage() {
             Export CSV
           </button>
         </div>
+        <details className="dp-derivation">
+          <summary className="t-label">Timing parameters · clock, delays, setup / hold</summary>
+          <div className="dp-params">
+            <label className="dp-field"><span className="t-label">Clock period (ticks)</span>
+              <input type="number" min="2" step="1" value={clockPeriod}
+                onChange={(event) => setClockPeriod(Math.max(2, Number(event.target.value) || 2))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Duty cycle (%)</span>
+              <input type="number" min="1" max="99" step="1" value={duty}
+                onChange={(event) => setDuty(Math.min(99, Math.max(1, Number(event.target.value) || 50)))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Active edge</span>
+              <select value={edge} onChange={(event) => setEdge(event.target.value as 'rising' | 'falling')}>
+                <option value="rising">Rising</option>
+                <option value="falling">Falling</option>
+              </select>
+            </label>
+            <label className="dp-field"><span className="t-label">Default gate delay</span>
+              <input type="number" min="0" step="1" value={gateDelay}
+                onChange={(event) => setGateDelay(Math.max(0, Number(event.target.value) || 0))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Clock-to-Q delay</span>
+              <input type="number" min="0" step="1" value={clkToQ}
+                onChange={(event) => setClkToQ(Math.max(0, Number(event.target.value) || 0))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Run length (ticks)</span>
+              <input type="number" min="1" max="1000" step="1" value={totalDuration}
+                onChange={(event) => setTotalDuration(Math.min(1000, Math.max(1, Number(event.target.value) || 1)))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Setup (ticks)</span>
+              <input aria-label="Setup ticks" type="number" min="0" value={setup}
+                onChange={(event) => setSetup(Math.max(0, Number(event.target.value) || 0))} />
+            </label>
+            <label className="dp-field"><span className="t-label">Hold (ticks)</span>
+              <input aria-label="Hold ticks" type="number" min="0" value={hold}
+                onChange={(event) => setHold(Math.max(0, Number(event.target.value) || 0))} />
+            </label>
+          </div>
+        </details>
         {error && <div className="error-banner" role="alert">{error}</div>}
         {!activeNetlist && (
-          <p className="timing-note">No generated circuit is available yet. Choose one of the built-in presets.</p>
+          <p className="dp-note" role="note">No circuit yet. Generate one in the workbench, or pick an example above.</p>
         )}
       </section>
 
-      <section className="dp-panel timing-stimulus-card">
+      <section className="dp-panel timing-waveform-card">
         <div className="section-header">
           <div>
-            <h2>Input stimulus</h2>
-            <p className="card-subtitle">Click an input row in the waveform to toggle it at that time.</p>
+            <h2>Waveform viewer</h2>
+            <p className="card-subtitle">Click an input row to flip that input at that moment. Transport-delay events are retained so short glitches remain visible.</p>
           </div>
-          <span className="info-tag">{stimulus.length} scheduled changes</span>
+          {waveform && <span className="metric-pill">{waveform.signals.length} signals · {waveform.time.length} time points</span>}
         </div>
-        {stimulus.length === 0 ? (
-          <p className="timing-note">No manual input changes. Inputs start at 0 unless set below.</p>
-        ) : (
-          <div className="timing-stimulus-list">
+        {stimulus.length > 0 && (
+          <div className="timing-stimulus-list" aria-label="Scheduled input changes">
             {stimulus.map((item, index) => (
               <span className="timing-stimulus-chip" key={`${item.net}-${item.t}-${index}`}>
                 t={item.t}: {item.net}={item.value}
@@ -437,18 +495,21 @@ export function TimingPage() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="dp-panel timing-waveform-card">
-        <div className="section-header">
-          <div>
-            <h2>Waveform viewer</h2>
-            <p className="card-subtitle">Transport-delay events are retained so short glitches remain visible.</p>
+        {internalCount > 0 && (
+          <div className="dp-note timing-internal">
+            <label>
+              <input type="checkbox" checked={showInternal} onChange={(event) => setShowInternal(event.target.checked)} />{' '}
+              Show {internalCount} internal signal{internalCount === 1 ? '' : 's'}
+            </label>
+            <p>
+              <b>Outputs</b> are what your circuit delivers. <b>Internal signals</b> are the gate outputs in between
+              (an inverter&apos;s result, each AND term). They never change the truth table, but they show <em>why</em> an
+              output glitches, so turn them on when you study hazards.
+            </p>
           </div>
-          {waveform && <span className="metric-pill">{waveform.signals.length} signals · {waveform.time.length} time points</span>}
-        </div>
+        )}
         {!waveform ? (
-          <div className="timing-empty-state">Run the simulation to inspect the digital waveforms.</div>
+          <div className="timing-empty-state">Choose a circuit to see its waveforms.</div>
         ) : (
           <>
             <div className="timing-svg-viewport" ref={viewportRef}>
@@ -499,7 +560,7 @@ export function TimingPage() {
                     </g>
                   );
                 })}
-                {waveform.events.filter((event) => event.label.startsWith('active-edge:')).map((event, index) => {
+                {(activeFlops.length === 0 ? [] : waveform.events.filter((event) => event.label.startsWith('active-edge:'))).map((event, index) => {
                   const x = 100 + event.t * 12;
                   return (
                     <path key={`edge-${event.t}-${index}`} d={`M ${x - 4} 30 L ${x + 4} 30 L ${x} 37 Z`}
@@ -536,14 +597,16 @@ export function TimingPage() {
       </section>
 
       <div className="timing-results-grid">
+        {activeFlops.length > 0 && (
         <section className="dp-panel">
           <h2>State sequence</h2>
           {stateChanges.length > 0 ? (
             <div className="timing-sequence-list">
               {stateChanges.map((change) => <span key={`${change.t}-${change.state}`}>t={change.t} <b>{change.state}</b></span>)}
             </div>
-          ) : <p className="timing-note">This preset has no state outputs.</p>}
+          ) : <p className="timing-note">No state change in this run.</p>}
         </section>
+        )}
         <section className="dp-panel">
           <h2>Hazard analysis</h2>
           {hazardWarnings.length > 0 ? hazardWarnings.map((hazard) => (
@@ -552,7 +615,7 @@ export function TimingPage() {
               <span>{hazard.where}</span>
               {hazard.fix && <span>Suggested consensus term: <code>{hazard.fix}</code></span>}
             </div>
-          )) : <p className="timing-note">No static-1 hazard was found in a recognizable two-level SOP output.</p>}
+          )) : <p className="timing-note">No static-1 hazard for a single-input change was found in a recognizable two-level SOP output. (Several inputs changing at once can still glitch, as the waveform shows.)</p>}
           {timingViolations.length > 0 && (
             <div className="timing-warning" role="status">
               <b>Setup / hold violations</b>
