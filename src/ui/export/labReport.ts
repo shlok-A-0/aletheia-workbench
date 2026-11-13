@@ -14,7 +14,33 @@ function escaped(value: unknown): string {
   })[c] ?? c);
 }
 
-export function generateLabReportHtml(state: RootStore, schematicSvg?: string): string {
+/** Section 7: the FSM / sequential circuit the student designed, when there is one. */
+function sequentialSection(state: RootStore, sequentialSvg?: string, stateDiagramSvg?: string): string {
+  const net = state.designedNetlist;
+  if (!net) return '';
+  const st = state.stateTable;
+  const ffs = net.nodes.filter((n) => n.kind === 'ff').length;
+  const rows = st?.rows.map((r) => `<tr><td class="bold-cell">${escaped(r.state)}</td><td>${escaped(r.input)}</td><td>${escaped(r.next)}</td><td>${escaped(r.output)}</td></tr>`).join('') ?? '';
+  const diagram = st ? (stateDiagramSvg ?? '') : '';
+  const equations = [...state.excitationEquations, ...state.outputEquations];
+  return `
+    <h2>7. Sequential Design</h2>
+    <p>${st ? `${escaped(st.model === 'moore' ? 'Moore' : 'Mealy')} machine with ${st.states.length} states` : 'Sequential circuit'}, implemented with ${ffs} flip-flop${ffs === 1 ? '' : 's'} and ${gateCount(net)} gates.</p>
+    ${diagram ? `<div class="schematic-container" style="page-break-inside:avoid;margin-bottom:14px;text-align:center;">${diagram}</div>` : ''}
+    ${st ? `<table>
+      <thead><tr><th>Present state</th><th>Input (${escaped(st.inputs.join(', '))})</th><th>Next state</th><th>Output (${escaped(st.outputs.join(', '))})</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : ''}
+    ${equations.length > 0 ? `<h3>Flip-flop input and output equations</h3><ul class="eqs">${equations.map((e) => `<li><code>${escaped(e)}</code></li>`).join('')}</ul>` : ''}
+    ${sequentialSvg ? `<h3>Sequential circuit schematic</h3><div class="schematic-container" style="page-break-inside:avoid;margin-bottom:14px;">${sequentialSvg}</div>` : ''}`;
+}
+
+export function generateLabReportHtml(
+  state: RootStore,
+  schematicSvg?: string,
+  sequentialSvg?: string,
+  stateDiagramSvg?: string
+): string {
   const minterms =
     state.truthTable?.rows.filter((r) => r.out === 1).map((r) => r.index).join(', ') || 'None';
 
@@ -219,6 +245,13 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
       body { margin: 0; padding: 0; background: #fff; }
       .report-paper { max-width: 100%; margin: 0; padding: 0; }
     }
+    .state-diagram-svg .sd-edge { fill: none; stroke: #334155; stroke-width: 1.5; }
+    .state-diagram-svg .sd-arrow { fill: #334155; }
+    .state-diagram-svg .sd-node { fill: #ffffff; stroke: #334155; stroke-width: 2; }
+    .state-diagram-svg .sd-node.is-reset { stroke-width: 4; }
+    .state-diagram-svg text { fill: #0f172a; font-family: monospace; }
+    .state-diagram-svg .sd-label { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; }
+    ul.eqs { font-size: 13px; line-height: 1.7; }
   </style>
 </head>
 <body>
@@ -349,9 +382,10 @@ export function generateLabReportHtml(state: RootStore, schematicSvg?: string): 
       ${qmSteps}
     </ol>
 
+    ${sequentialSection(state, sequentialSvg, stateDiagramSvg)}
+
     <footer style="margin-top:30px;border-top:1px solid #cbd5e1;padding-top:12px;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;">
       <span>Aletheia Workbench &bull; Generated from live synthesis netlist</span>
-      <span>Page 1 of 1</span>
     </footer>
   </div>
 
@@ -400,8 +434,34 @@ export async function openPrintableLabReport(state: RootStore): Promise<void> {
     }
   }
 
+  // The designed sequential circuit gets its own schematic unless it is already the main one above.
+  let sequentialSvg = '';
+  if (state.designedNetlist && state.designedNetlist !== activeNetlist) {
+    try {
+      sequentialSvg = await generateSchematicSvg(state.designedNetlist);
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // The state diagram is a React component; render it to markup on demand so the server renderer
+  // stays out of the main bundle.
+  let stateDiagramSvg = '';
+  if (state.stateTable && state.designedNetlist) {
+    try {
+      const [{ createElement }, { renderToStaticMarkup }, { StateDiagramSVG }] = await Promise.all([
+        import('react'),
+        import('react-dom/server'),
+        import('../pages/sequential/StateDiagram'),
+      ]);
+      stateDiagramSvg = renderToStaticMarkup(createElement(StateDiagramSVG, { st: state.stateTable }));
+    } catch {
+      // Non-fatal
+    }
+  }
+
   // 3. Generate full lab report HTML
-  const html = generateLabReportHtml(state, svg);
+  const html = generateLabReportHtml(state, svg, sequentialSvg, stateDiagramSvg);
 
   // 4. Update the opened window
   try {

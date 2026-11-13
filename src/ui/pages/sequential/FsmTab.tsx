@@ -7,7 +7,7 @@ import { StateDiagramSVG } from './StateDiagram';
 import { PRESET_FSMS } from './presets';
 
 export function FsmTab() {
-  const { stateTable, setStateTable, setDesignedNetlist } = useStore();
+  const { stateTable, setStateTable, setDesignedNetlist, setEquations } = useStore();
   const [fsmStateTable, setFsmStateTable] = useState<StateTable>(stateTable ?? PRESET_FSMS[0].st);
   const [fsmDesignFF, setFsmDesignFF] = useState<FFType>('D');
   const [fsmStrategy, setFsmStrategy] = useState<'binary' | 'gray' | 'one-hot'>('binary');
@@ -43,7 +43,11 @@ export function FsmTab() {
     setDesignResult(result);
     setStateTable(fsmStateTable);
     setDesignedNetlist(result.netlist);
-  }, [fsmStateTable, fsmDesignFF, fsmStrategy, fsmValidationErrors, setStateTable, setDesignedNetlist]);
+    setEquations(
+      Object.entries(result.flipFlopInputEquations).map(([name, eq]) => `${name} = ${eq}`),
+      Object.entries(result.outputEquations).map(([name, eq]) => `${name} = ${eq}`)
+    );
+  }, [fsmStateTable, fsmDesignFF, fsmStrategy, fsmValidationErrors, setStateTable, setDesignedNetlist, setEquations]);
 
   return (
     <>

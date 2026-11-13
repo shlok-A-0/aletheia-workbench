@@ -88,5 +88,30 @@ describe('generateLabReportHtml', () => {
     expect(html).not.toContain('<b>B</b>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
+
+  it('adds a sequential design section with state table, diagram and equations', () => {
+    useStore.setState({
+      stateTable: {
+        model: 'mealy', inputs: ['X'], outputs: ['Z'], states: ['S0', 'S1'], reset: 'S0',
+        rows: [
+          { state: 'S0', input: '0', next: 'S0', output: '0' },
+          { state: 'S0', input: '1', next: 'S1', output: '0' },
+          { state: 'S1', input: '0', next: 'S0', output: '0' },
+          { state: 'S1', input: '1', next: 'S1', output: '1' },
+        ],
+      },
+      designedNetlist: { name: 'fsm', inputs: ['X'], outputs: ['Z'], nodes: [] },
+      excitationEquations: ['D0 = X'],
+      outputEquations: ['Z = X Q0'],
+    });
+    const html = generateLabReportHtml(useStore.getState(), undefined, undefined, '<svg class="state-diagram-svg"></svg>');
+    expect(html).toContain('7. Sequential Design');
+    expect(html).toContain('Mealy machine with 2 states');
+    expect(html).toContain('state-diagram-svg');
+    expect(html).toContain('D0 = X');
+    expect(html).not.toContain('Page 1 of 1');
+    useStore.setState({ stateTable: null, designedNetlist: null, excitationEquations: [], outputEquations: [] });
+    expect(generateLabReportHtml(useStore.getState())).not.toContain('7. Sequential Design');
+  });
 });
 
