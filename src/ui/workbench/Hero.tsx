@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { EXAMPLES, loadExample } from '../examples';
-import { analyzeSource, applyAnalysis, type Source, type SourceMode } from '../../pipeline/analyze';
+import { analyzeLarge, analyzeTable, applyAnalysis, needsWorker, parseSource, MAX_VARS, type Source, type SourceMode } from '../../pipeline/analyze';
 import { useResults } from '../../pipeline/useResults';
 import { IconArrow } from './icons';
 import { decodeShare, shareUrl } from '../share';
@@ -28,7 +28,7 @@ function initialSource(): Source {
       mode,
       text: s.inputMode === 'minterms' ? (s.mintermsStr || s.rawInput) : s.rawInput,
       dontCares: s.dontCaresStr || '',
-      numVars: Math.min(Math.max(s.vars.length, 2), 6),
+      numVars: Math.min(Math.max(s.vars.length, 2), MAX_VARS),
     };
   }
   return {
@@ -49,10 +49,28 @@ export function Hero() {
   const timer = useRef(0);
   const field = useRef<HTMLInputElement | null>(null);
 
+  // Each edit gets a sequence number so a slow background solve can never overwrite a newer edit.
+  const seq = useRef(0);
+  const [solving, setSolving] = useState(false);
+
   const run = useCallback((next: Source, delay = 160) => {
     window.clearTimeout(timer.current);
+    const id = ++seq.current;
     timer.current = window.setTimeout(() => {
-      const out = analyzeSource(next);
+      const parsed = parseSource(next);
+      if (parsed.ok && needsWorker(parsed)) {
+        setSolving(true);
+        setError(null);
+        void analyzeLarge(parsed.table, parsed.expr).then((out) => {
+          if (id !== seq.current) return; // superseded by a newer edit
+          setSolving(false);
+          if (out.ok) applyAnalysis(out.analysis, next);
+          else setError(out.error);
+        });
+        return;
+      }
+      setSolving(false);
+      const out = parsed.ok ? analyzeTable(parsed.table, parsed.expr) : parsed;
       if (out.ok) {
         applyAnalysis(out.analysis, next);
         setError(null);
@@ -125,6 +143,8 @@ export function Hero() {
   const isHighVar = activeVars.length > 5;
   const status = error
     ? { cls: 'is-error', text: error }
+    : solving
+      ? { cls: 'is-busy', text: `Solving ${src.mode === 'expr' ? 'a large function' : `${src.numVars} variables`} in the background…` }
     : loaded
       ? { cls: 'is-ok', text: `${loaded} loaded. Type to replace it.` }
       : results.hasResult
@@ -178,7 +198,7 @@ export function Hero() {
               <label className="wb-vars">
                 <span className="t-label">Vars</span>
                 <select value={src.numVars} onChange={(e) => update({ numVars: Number(e.target.value) })}>
-                  {[2, 3, 4, 5, 6].map((n) => (
+                  {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

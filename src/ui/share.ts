@@ -25,7 +25,7 @@ export function decodeShare(search: string): Source | null {
   const dontCares = (p.get('d') ?? '').slice(0, MAX_TEXT);
   const rawN = p.get('n');
   const n = rawN === null ? NaN : Number(rawN);
-  const numVars = Number.isInteger(n) ? Math.min(Math.max(n, 2), 6) : 3;
+  const numVars = Number.isInteger(n) ? Math.min(Math.max(n, 2), 8) : 3;
   return { mode, text, dontCares: mode === 'expr' ? '' : dontCares, numVars };
 }
 

@@ -17,7 +17,7 @@ describe('share links', () => {
     expect(decodeShare(`?m=expr&f=${'A'.repeat(500)}`)).toBeNull();
   });
   it('clamps the variable count', () => {
-    expect(decodeShare('?m=minterms&f=1&n=99')?.numVars).toBe(6);
+    expect(decodeShare('?m=minterms&f=1&n=99')?.numVars).toBe(8);
     expect(decodeShare('?m=minterms&f=1&n=1')?.numVars).toBe(2);
   });
   it('builds a full URL', () => {

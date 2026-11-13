@@ -11,6 +11,8 @@ import type { Netlist, TruthTable } from '../engine/types';
 export const workerApi = {
   ping: () => 'pong',
   version: () => '1.0.0',
+  /** One-form minimisation, used by the live workbench for functions too big to solve on the UI thread. */
+  minimize: (table: TruthTable, form: 'SOP' | 'POS') => quineMcCluskey(table, form),
   minimizeTable: (table: TruthTable) => ({
     results: {
       SOP: quineMcCluskey(table, 'SOP'),

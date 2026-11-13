@@ -396,6 +396,10 @@
   color: var(--c-lime);
 }
 
+.wb-status.is-busy {
+  color: var(--text-2);
+}
+
 .wb-status.is-error {
   color: var(--c-err);
 }

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useStore } from '../../store';
 import { mintermsOf } from '../../engine/boolean';
-import { analyzeTable, applyAnalysis } from '../../pipeline/analyze';
+import { recompute } from '../../pipeline/analyze';
 import { useResults } from '../../pipeline/useResults';
 import { Section } from './Section';
 
@@ -16,8 +16,7 @@ export function SimplifySection() {
 
   const setForm = (form: 'SOP' | 'POS') => {
     if (!table || form === results.form) return;
-    const out = analyzeTable(table, expr, form);
-    if (out.ok) applyAnalysis(out.analysis, null);
+    recompute(table, expr, form);
   };
 
   const minterms = table ? mintermsOf(table).length : 0;
