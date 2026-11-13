@@ -2,6 +2,7 @@ import { Component, memo, useCallback, useEffect, useMemo, useState, type ErrorI
 import {
   BaseEdge,
   Handle,
+  Panel,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -9,6 +10,7 @@ import {
   type EdgeProps,
   type Node,
   type NodeProps,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { Netlist } from '../../engine/types';
@@ -253,6 +255,17 @@ export interface SchematicViewProps {
   height?: number;
 }
 
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  return (
+    <Panel position="bottom-right" className="sch-zoom" aria-label="Zoom controls">
+      <button type="button" onClick={() => void zoomIn({ duration: 150 })} aria-label="Zoom in" title="Zoom in">+</button>
+      <button type="button" onClick={() => void zoomOut({ duration: 150 })} aria-label="Zoom out" title="Zoom out">−</button>
+      <button type="button" onClick={() => void fitView({ padding: 0.08, maxZoom: 1.15, duration: 200 })} aria-label="Fit circuit to view" title="Fit to view">Fit</button>
+    </Panel>
+  );
+}
+
 function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicViewProps) {
   const [layout, setLayout] = useState<SchematicLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -342,7 +355,9 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         panOnScroll={false}
         panOnDrag
         preventScrolling={false}
-      />
+      >
+        <ZoomControls />
+      </ReactFlow>
       {Object.keys(offsets).length > 0 && (
         <button type="button" className="btn-secondary sch-reset" onClick={() => setOffsets({})}>
           Reset layout

@@ -475,3 +475,9 @@
 .timing-stimulus-count { color: var(--text-3); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: var(--track-label); }
 .timing-stimulus-details { margin-bottom: var(--space-3); }
 .timing-stimulus-details > summary { cursor: pointer; color: var(--text-2); font-size: var(--fs-sm); padding: var(--space-2) 0; }
+
+.timing-export { position: relative; }
+.timing-export-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 220px; display: grid; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow-hard); }
+.timing-export-menu button { text-align: left; padding: 12px var(--space-4); background: transparent; color: var(--text-1); border: 0; border-bottom: 1px solid var(--line); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.timing-export-menu button:last-child { border-bottom: 0; }
+.timing-export-menu button:hover, .timing-export-menu button:focus-visible { background: var(--signal); color: var(--on-signal); outline: none; }

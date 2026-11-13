@@ -164,6 +164,7 @@ export function TimingPage() {
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportingPng, setExportingPng] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [waveform, setLocalWaveform] = useState<Waveform | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -451,14 +452,22 @@ export function TimingPage() {
             onClick={() => setPlayhead((time) => Math.min(totalDuration, time + clockPeriod))}>
             Step one clock
           </button>
-          <button className="btn-secondary" disabled={!waveform} onClick={exportSvg}>Export SVG</button>
-          <button className="btn-secondary" disabled={!waveform || exportingPng} onClick={() => void exportPng()}>
-            {exportingPng ? 'Exporting PNG…' : 'Export PNG'}
-          </button>
-          <button className="btn-secondary" disabled={!waveform}
-            onClick={() => waveform && downloadText('aletheia-timing-waveform.csv', toCSV(waveform), 'text/csv')}>
-            Export CSV
-          </button>
+          <div className="timing-export">
+            <button type="button" className="btn-secondary" disabled={!waveform || exportingPng} aria-haspopup="menu"
+              aria-expanded={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
+              {exportingPng ? 'Exporting…' : 'Export ▾'}
+            </button>
+            {exportOpen && (
+              <div className="timing-export-menu" role="menu" onKeyDown={(event) => { if (event.key === 'Escape') setExportOpen(false); }}>
+                <button type="button" role="menuitem" onClick={() => { setExportOpen(false); exportSvg(); }}>SVG · vector image</button>
+                <button type="button" role="menuitem" onClick={() => { setExportOpen(false); void exportPng(); }}>PNG · picture</button>
+                <button type="button" role="menuitem"
+                  onClick={() => { setExportOpen(false); if (waveform) downloadText('aletheia-timing-waveform.csv', toCSV(waveform), 'text/csv'); }}>
+                  CSV · raw data
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <details className="dp-derivation">
           <summary className="t-label">Timing parameters · clock, delays, setup / hold</summary>
