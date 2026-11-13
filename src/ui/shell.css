@@ -58,7 +58,7 @@
 
 .shell-nav a {
   flex: none;
-  padding: 4px 0;
+  padding: 10px 0;
   color: var(--text-3);
   text-decoration: none;
   border-bottom: 1px solid transparent;
@@ -83,8 +83,8 @@
 
 .shell-icon-btn,
 .shell-ai {
-  height: 28px;
-  min-width: 28px;
+  height: 36px;
+  min-width: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -160,4 +160,22 @@
   .shell-brand i {
     display: none;
   }
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -48px;
+  z-index: 1000;
+  padding: 10px 16px;
+  background: var(--signal);
+  color: var(--on-signal);
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.skip-link:focus { top: var(--space-3); }
+
+@media (pointer: coarse) {
+  .shell-nav a, .shell-ai { min-height: 44px; display: inline-flex; align-items: center; }
 }

@@ -139,10 +139,10 @@
   text-align: left;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 8px 12px;
+  color: var(--text-1);
+  padding: 10px 12px;
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -173,8 +173,8 @@
 }
 
 .chat-send {
-  background: var(--accent-indigo);
-  color: var(--text-1);
+  background: var(--signal);
+  color: var(--on-signal);
   border: none;
   padding: 8px 14px;
   border-radius: 6px;
@@ -210,13 +210,13 @@
 
 .chat-page-actions button:hover {
   color: var(--text-primary);
-  border-color: var(--accent-indigo);
+  border-color: var(--signal-ink);
 }
 
 .prompt-chip:disabled,
 .chat-page-actions button:disabled,
 .chat-send:disabled {
-  opacity: 0.55;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -392,7 +392,7 @@
 
 .preset-chip:hover {
   background: var(--line-strong);
-  border-color: var(--accent-indigo);
+  border-color: var(--signal-ink);
 }
 
 /* Algebraic Simplification Accordion */
@@ -808,7 +808,7 @@
   position: absolute;
   top: 6px;
   right: 8px;
-  color: var(--accent-indigo);
+  color: var(--signal-ink);
 }
 
 .col-header-cell, .row-header-cell {
@@ -1101,7 +1101,7 @@
 }
 
 .type-chip .stat-label {
-  color: var(--accent-indigo);
+  color: var(--signal-ink);
 }
 
 .type-chip .stat-value {

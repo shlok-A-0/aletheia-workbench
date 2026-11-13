@@ -264,13 +264,8 @@
   text-transform: uppercase;
 }
 
-.wb-hero-title.echo {
-  margin-bottom: 0.62em;
-}
-
-.wb-hero-title.echo::after {
-  white-space: pre-line;
-  opacity: 0.5;
+.wb-hero-title {
+  margin-bottom: 0.4em;
 }
 
 /* ---------- Console (the input) ---------------------------------------------- */
@@ -611,7 +606,7 @@
 }
 
 .wb-table-wrap {
-  max-height: 460px;
+  max-height: min(1100px, 80vh);
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1340,8 +1335,6 @@ button.sch-term-hit:hover {
 @media (max-width: 560px) {
   /* decorative squares collide with copy at this width */
   .wb-px { display: none; }
-
-  .wb-hero-title.echo { margin-bottom: 0.9em; }
 
   .wb-seg--sm {
     max-width: 100%;

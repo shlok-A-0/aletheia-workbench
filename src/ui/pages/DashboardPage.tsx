@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../store';
 import { createProjectFile, parseProjectFile } from '../../store/project';
-import { EXAMPLES, loadExample } from '../examples';
 import { gateCount, pathDepth, specifiedPathDelay, verify } from '../../engine/circuit/simulate';
 import { PageHead } from '../deep/PageHead';
 import { openPrintableLabReport } from '../export/labReport';
@@ -33,7 +32,7 @@ function printableReport(state: ReturnType<typeof useStore.getState>): string {
     ['Variables', state.vars.join(', ') || '—'],
     ['Minterms', state.truthTable?.rows.filter((row) => row.out === 1).map((row) => row.index).join(', ') || '—'],
     ['Minimized form', state.minResult?.text ?? 'Not computed'],
-    ['Circuit', current?.name ?? 'Not synthesized'],
+    ['Circuit', current ? 'Your circuit' : 'Not synthesized'],
     ['Gate count', String(gateCount(current))],
     ['IC packages', String(state.costReport?.totalICs ?? 'Not computed')],
     ['Estimated total power (W)', String(state.powerReport?.totalW ?? 'Not available')],
@@ -49,7 +48,7 @@ function printableReport(state: ReturnType<typeof useStore.getState>): string {
     ).join('')}</tbody></table>`
     : '<p>No truth table generated.</p>';
   const variants = Object.entries(state.netlists).map(([name, netlist]) =>
-    `<tr><th>${escaped(name)}</th><td>${escaped(netlist?.name ?? 'Unavailable')}</td><td>${gateCount(netlist)}</td><td>${pathDepth(netlist) ?? '—'}</td><td>${specifiedPathDelay(netlist) ?? 'Unavailable'}</td></tr>`
+    `<tr><th>${escaped(name)}</th><td>${escaped(netlist ? 'Your circuit' : 'Unavailable')}</td><td>${gateCount(netlist)}</td><td>${pathDepth(netlist) ?? '—'}</td><td>${specifiedPathDelay(netlist) ?? 'Unavailable'}</td></tr>`
   ).join('');
   const netlistDetails = Object.entries(state.netlists).map(([name, netlist]) => {
     const nodeRows = netlist?.nodes.map((node) => {
@@ -63,7 +62,7 @@ function printableReport(state: ReturnType<typeof useStore.getState>): string {
       const output = node.kind === 'ff' ? node.q : node.kind === 'block' ? Object.keys(node.pins).join(', ') : node.output;
       return `<tr><td>${escaped(node.id)}</td><td>${escaped(operation)}</td><td>${escaped(output)}</td></tr>`;
     }).join('') ?? '';
-    return `<h3>${escaped(name)} — ${escaped(netlist?.name ?? 'not generated')}</h3>${nodeRows ? `<table><thead><tr><th>Node</th><th>Function</th><th>Output</th></tr></thead><tbody>${nodeRows}</tbody></table>` : '<p>No netlist available.</p>'}`;
+    return `<h3>${escaped(name)} — ${escaped(netlist ? 'Your circuit' : 'not generated')}</h3>${nodeRows ? `<table><thead><tr><th>Node</th><th>Function</th><th>Output</th></tr></thead><tbody>${nodeRows}</tbody></table>` : '<p>No netlist available.</p>'}`;
   }).join('');
   const minimizationSteps = state.minResult?.steps.map((step) =>
     `<li><strong>${escaped(step.title)}</strong>: ${escaped(step.detail)}</li>`
@@ -114,7 +113,6 @@ th,td{border:1px solid #cbd5e1;padding:.6rem;text-align:left}th{width:13rem;back
 export function DashboardPage() {
   const state = useStore();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [selectedExample, setSelectedExample] = useState(EXAMPLES[0].id);
   const [notice, setNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const currentNetlist = state.netlists[state.activeVariant]
     ?? state.netlists.simplified
@@ -135,15 +133,6 @@ export function DashboardPage() {
       return { result: null, error: error instanceof Error ? error.message : String(error) };
     }
   }, [currentNetlist, state.truthTable]);
-
-  const chooseExample = () => {
-    try {
-      loadExample(selectedExample);
-      setNotice({ kind: 'success', text: `${EXAMPLES.find((item) => item.id === selectedExample)?.label ?? 'Example'} loaded.` });
-    } catch (error) {
-      setNotice({ kind: 'error', text: error instanceof Error ? error.message : String(error) });
-    }
-  };
 
   const saveProject = () => {
     try {
@@ -182,7 +171,7 @@ export function DashboardPage() {
     { title: '1. Input summary', path: '/input', value: state.rawInput || 'No function entered', detail: `${state.vars.length} variables: ${state.vars.join(', ') || '—'}` },
     { title: '2. Truth table', path: '/truth-table', value: state.truthTable ? `${state.truthTable.rows.length} rows` : 'Not generated', detail: `${minterms.length} minterms` },
     { title: '3. K-map and QM', path: '/kmap', value: state.minResult?.text ?? 'Not minimized', detail: state.minResult ? `${state.minResult.termCount} terms · ${state.minResult.literalCount} literals` : 'Minimize the current function' },
-    { title: '4. Circuit', path: '/circuit', value: currentNetlist?.name ?? 'Not synthesized', detail: `${gateCount(currentNetlist)} gates · ${currentNetlist?.outputs.length ?? 0} outputs` },
+    { title: '4. Circuit', path: '/circuit', value: currentNetlist ? 'Your circuit' : 'Not synthesized', detail: `${gateCount(currentNetlist)} gates · ${currentNetlist?.outputs.length ?? 0} outputs` },
   ];
 
   return (
@@ -190,13 +179,6 @@ export function DashboardPage() {
       <PageHead kicker="Report / Dashboard" title="Design Dashboard" sub="A compact view of the current design, with links into each analysis stage." />
 
       <section className="dp-panel dashboard-toolbar" aria-label="Project actions">
-        <div>
-          <label htmlFor="example-picker">Load a worked example</label>
-          <select id="example-picker" value={selectedExample} onChange={(event) => setSelectedExample(event.target.value)}>
-            {EXAMPLES.map((example) => <option key={example.id} value={example.id}>{example.label} — {example.description}</option>)}
-          </select>
-          <button className="btn-primary" onClick={chooseExample}>Load example</button>
-        </div>
         <div className="dashboard-actions">
           <button className="btn-secondary" onClick={saveProject}>Save project JSON</button>
           <button className="btn-secondary" onClick={() => fileInput.current?.click()}>Load project JSON</button>
@@ -267,7 +249,7 @@ export function DashboardPage() {
           <article className="dp-panel dashboard-card">
             <div className="dashboard-card-head"><h2>8. Timing and state sequence</h2><Link to="/timing">Open</Link></div>
             <strong>{state.waveform ? `${state.waveform.events.length} timing events` : state.stateTable?.model.toUpperCase() ?? 'Sequential design'}</strong>
-            <p>{state.waveform ? `Duration ${state.waveform.time.at(-1) ?? 0} ticks` : `${state.designedNetlist.nodes.filter((node) => node.kind === 'ff').length} flip-flops in ${state.designedNetlist.name}`}</p>
+            <p>{state.waveform ? `Duration ${state.waveform.time.at(-1) ?? 0} ticks` : `${state.designedNetlist.nodes.filter((node) => node.kind === 'ff').length} flip-flops in your design`}</p>
           </article>
         )}
       </section>

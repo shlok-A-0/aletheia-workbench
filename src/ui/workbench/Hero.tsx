@@ -166,7 +166,7 @@ export function Hero() {
       <span className="wb-px wb-px--sm" style={{ top: '82%', left: '88%' }} aria-hidden="true" />
 
       <div className="wb-hero-body">
-        <h1 className="wb-hero-title echo" data-text={'LOGIC IN.\nCIRCUIT OUT.'}>
+        <h1 className="wb-hero-title">
           LOGIC IN.
           <br />
           CIRCUIT OUT.

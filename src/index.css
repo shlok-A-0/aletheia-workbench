@@ -40,7 +40,6 @@
   --info: #6fdcff;
   --warn: #ffb84d;
   --error: #ff6b7a;
-  --ai-hue: #6366f1;          /* AI assistant accent (legacy value) */
 
   /* --- Lime panel (video reference: pale acid-lime slab with ink type) ---- */
   --lime-paper: #c9f577;
@@ -136,7 +135,6 @@
   --accent-cyan: var(--signal-ink);
   --accent-emerald: var(--signal-ink);
   --accent-blue: var(--signal-deep);
-  --accent-indigo: var(--ai-hue);
   --accent-amber: var(--warn);
   --accent-rose: var(--error);
 

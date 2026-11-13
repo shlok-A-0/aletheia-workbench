@@ -67,6 +67,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main">Skip to content</a>
       <header className="shell-top">
         <NavLink to="/" end className="shell-brand" aria-label="Aletheia workbench home">
           ALETHEIA <i>[DOT]</i> LOGIC
@@ -93,7 +94,7 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="shell-main">
+      <main id="main" className="shell-main" tabIndex={-1}>
         <Outlet />
       </main>
 
