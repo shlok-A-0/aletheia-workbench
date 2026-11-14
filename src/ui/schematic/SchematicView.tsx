@@ -299,6 +299,10 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
     if (!layout) return null;
     const base = toFlow(layout, values, toggle);
     const moved = Object.keys(offsets).length > 0;
+    const obstacles = layout.nodes.map((n) => {
+      const o = offsets[n.id];
+      return { x: n.x + (o?.dx ?? 0), y: n.y + (o?.dy ?? 0), width: n.width, height: n.height };
+    });
     return {
       nodes: base.nodes.map((n) => {
         const o = offsets[n.id];
@@ -313,7 +317,7 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
         moved
           ? base.edges.map((e) => ({
               ...e,
-              data: { ...(e.data as WireData), points: rerouteWire((e.data as WireData).points, offsets[e.source], offsets[e.target]) },
+              data: { ...(e.data as WireData), points: rerouteWire((e.data as WireData).points, offsets[e.source], offsets[e.target], obstacles) },
             }))
           : base.edges
       ),
@@ -336,7 +340,6 @@ function Inner({ netlist, inputs = {}, onToggleInput, height = 420 }: SchematicV
   return (
     <div className="sch-frame" style={{ height: frame }} data-aspect={aspect.toFixed(2)}>
       <ReactFlow
-        proOptions={{ hideAttribution: true }}
         nodes={flow.nodes}
         edges={flow.edges}
         nodeTypes={nodeTypes}

@@ -13,6 +13,7 @@ import {
   toCSV,
 } from '../../engine';
 import { PageHead } from '../deep/PageHead';
+import { standaloneSvg } from '../export/svgExport';
 import { outputLabel } from '../schematic/elkLayout';
 
 const DEFAULTS = {
@@ -323,7 +324,7 @@ export function TimingPage() {
   const exportSvg = () => {
     const svg = svgRef.current;
     if (!svg) return;
-    downloadText('aletheia-timing-waveform.svg', new XMLSerializer().serializeToString(svg), 'image/svg+xml');
+    downloadText('aletheia-timing-waveform.svg', standaloneSvg(svg), 'image/svg+xml');
   };
 
   const exportPng = async () => {
@@ -331,7 +332,7 @@ export function TimingPage() {
     if (!svg) return;
     setExportingPng(true);
     try {
-      const source = new XMLSerializer().serializeToString(svg);
+      const source = standaloneSvg(svg);
       const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
       try {
         const image = new Image();
@@ -398,6 +399,9 @@ export function TimingPage() {
   const internalCount = waveform?.signals.filter((signal) => signal.group === 'internal').length ?? 0;
   /** Generated net ids (or_3, and_1…) become the output's real name, F, wherever a student reads them. */
   const shown = (name: string) => {
+    // Generated complement nets (qn0_2) read as Q0′ rather than an internal id.
+    const complement = /^qn(\d+)(?:_\d+)?$/.exec(name);
+    if (complement) return `Q${complement[1]}′`;
     const i = activeNetlist?.outputs.indexOf(name) ?? -1;
     return activeNetlist && i >= 0 ? outputLabel(name, i, activeNetlist.outputs.length) : name;
   };
