@@ -379,19 +379,14 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
               <span className="info-tag">Iterative single-bit adjacency reduction</span>
             </div>
 
+            <p className="qm-explain">
+              Read it left to right. Column 1 lists every minterm in binary. Each next column merges two terms that differ in exactly one bit,
+              and that bit becomes <code>-</code> (the variable drops out). The last column holds the largest merged groups; terms that
+              could not be merged any further are the prime implicants used in the chart below.
+            </p>
             <div className="columns-grid">
               {qmDetails.columnsData.map((col) => (
-                <div key={col.column} className="qm-column-box">
-                  <div className="qm-column-title">Column {col.column + 1} ({col.terms.length} terms)</div>
-                  <div className="terms-list">
-                    {col.terms.map((t, tIdx) => (
-                      <div key={tIdx} className="qm-term-row">
-                        <code className="term-bits">{t.bits}</code>
-                        <span className="term-covers">m({t.covers.join(',')})</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <QmColumn key={col.column} index={col.column} terms={col.terms} />
               ))}
             </div>
           </div>
@@ -471,3 +466,31 @@ export const KMapPage: React.FC<KMapPageProps> = ({ embedded = false }) => {
     </div>
   );
 };
+
+const QM_PREVIEW = 12;
+
+function QmColumn({ index, terms }: { index: number; terms: { bits: string; covers: number[] }[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? terms : terms.slice(0, QM_PREVIEW);
+  const covers = (list: number[]) => (list.length > 4 ? `m(${list.slice(0, 4).join(',')}, +${list.length - 4})` : `m(${list.join(',')})`);
+  return (
+    <div className="qm-column-box">
+      <div className="qm-column-title">
+        {index === 0 ? 'Minterms' : `Merge ${index}`} · {terms.length} term{terms.length === 1 ? '' : 's'}
+      </div>
+      <div className="terms-list">
+        {shown.map((t, tIdx) => (
+          <div key={tIdx} className="qm-term-row" title={`m(${t.covers.join(',')})`}>
+            <code className="term-bits">{t.bits}</code>
+            <span className="term-covers">{covers(t.covers)}</span>
+          </div>
+        ))}
+      </div>
+      {terms.length > QM_PREVIEW && (
+        <button type="button" className="btn-secondary qm-more" onClick={() => setAll(!all)}>
+          {all ? 'Show fewer' : `Show all ${terms.length}`}
+        </button>
+      )}
+    </div>
+  );
+}

@@ -48,10 +48,10 @@ const GALLERY_GROUPS = ['Select', 'Decode'] as const;
 
 /** Real 7400-series multiplexers, by number of select lines. */
 const MUX_ICS: Record<number, string> = {
-  1: '74157 · quad 2:1',
-  2: '74153 · dual 4:1',
-  3: '74151 · 8:1',
-  4: '74150 · 16:1',
+  1: '74157 · quad',
+  2: '74153 · dual',
+  3: '74151',
+  4: '74150',
 };
 
 /** Real decoder/demultiplexer ICs, by number of address lines. */

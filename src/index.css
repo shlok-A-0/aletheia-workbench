@@ -396,3 +396,4 @@ pre {
   --kmap-group-5: rgba(168, 85, 247, 0.25);
   --kmap-group-6: rgba(239, 68, 68, 0.25);
 }
+.react-flow__attribution { display: none !important; }

@@ -13,6 +13,7 @@ import {
   toCSV,
 } from '../../engine';
 import { PageHead } from '../deep/PageHead';
+import { standaloneSvg } from '../export/svgExport';
 import { outputLabel } from '../schematic/elkLayout';
 
 const DEFAULTS = {
@@ -164,6 +165,7 @@ export function TimingPage() {
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportingPng, setExportingPng] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [waveform, setLocalWaveform] = useState<Waveform | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -322,7 +324,7 @@ export function TimingPage() {
   const exportSvg = () => {
     const svg = svgRef.current;
     if (!svg) return;
-    downloadText('aletheia-timing-waveform.svg', new XMLSerializer().serializeToString(svg), 'image/svg+xml');
+    downloadText('aletheia-timing-waveform.svg', standaloneSvg(svg), 'image/svg+xml');
   };
 
   const exportPng = async () => {
@@ -330,7 +332,7 @@ export function TimingPage() {
     if (!svg) return;
     setExportingPng(true);
     try {
-      const source = new XMLSerializer().serializeToString(svg);
+      const source = standaloneSvg(svg);
       const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
       try {
         const image = new Image();
@@ -397,6 +399,9 @@ export function TimingPage() {
   const internalCount = waveform?.signals.filter((signal) => signal.group === 'internal').length ?? 0;
   /** Generated net ids (or_3, and_1…) become the output's real name, F, wherever a student reads them. */
   const shown = (name: string) => {
+    // Generated complement nets (qn0_2) read as Q0′ rather than an internal id.
+    const complement = /^qn(\d+)(?:_\d+)?$/.exec(name);
+    if (complement) return `Q${complement[1]}′`;
     const i = activeNetlist?.outputs.indexOf(name) ?? -1;
     return activeNetlist && i >= 0 ? outputLabel(name, i, activeNetlist.outputs.length) : name;
   };
@@ -451,14 +456,22 @@ export function TimingPage() {
             onClick={() => setPlayhead((time) => Math.min(totalDuration, time + clockPeriod))}>
             Step one clock
           </button>
-          <button className="btn-secondary" disabled={!waveform} onClick={exportSvg}>Export SVG</button>
-          <button className="btn-secondary" disabled={!waveform || exportingPng} onClick={() => void exportPng()}>
-            {exportingPng ? 'Exporting PNG…' : 'Export PNG'}
-          </button>
-          <button className="btn-secondary" disabled={!waveform}
-            onClick={() => waveform && downloadText('aletheia-timing-waveform.csv', toCSV(waveform), 'text/csv')}>
-            Export CSV
-          </button>
+          <div className="timing-export">
+            <button type="button" className="btn-secondary" disabled={!waveform || exportingPng} aria-haspopup="menu"
+              aria-expanded={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
+              {exportingPng ? 'Exporting…' : 'Export ▾'}
+            </button>
+            {exportOpen && (
+              <div className="timing-export-menu" role="menu" onKeyDown={(event) => { if (event.key === 'Escape') setExportOpen(false); }}>
+                <button type="button" role="menuitem" onClick={() => { setExportOpen(false); exportSvg(); }}>SVG · vector image</button>
+                <button type="button" role="menuitem" onClick={() => { setExportOpen(false); void exportPng(); }}>PNG · picture</button>
+                <button type="button" role="menuitem"
+                  onClick={() => { setExportOpen(false); if (waveform) downloadText('aletheia-timing-waveform.csv', toCSV(waveform), 'text/csv'); }}>
+                  CSV · raw data
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <details className="dp-derivation">
           <summary className="t-label">Timing parameters · clock, delays, setup / hold</summary>
@@ -513,18 +526,37 @@ export function TimingPage() {
           </div>
           {waveform && <span className="metric-pill">{waveform.signals.length} signals · {waveform.time.length} time points</span>}
         </div>
+        <div className="timing-stimulus-actions">
+          <button type="button" className="btn-secondary" disabled={stimulus.length === 0} onClick={() => {
+            setStimulus([]);
+            setWaveform(null);
+          }}>Clear all changes</button>
+          <button type="button" className="btn-secondary" onClick={() => {
+            const seeded = presetStimulus(preset, clockPeriod, activeNetlist);
+            setStimulus(seeded);
+            setWaveform(null);
+            setError(null);
+          }}>Reset to default</button>
+          <span className="timing-stimulus-count">{stimulus.length} scheduled change{stimulus.length === 1 ? '' : 's'}</span>
+        </div>
         {stimulus.length > 0 && (
-          <div className="timing-stimulus-list" aria-label="Scheduled input changes">
-            {stimulus.map((item, index) => (
-              <span className="timing-stimulus-chip" key={`${item.net}-${item.t}-${index}`}>
-                t={item.t}: {item.net}={item.value}
-                <button aria-label={`Remove ${item.net} change at tick ${item.t}`} onClick={() => {
-                  setStimulus(stimulus.filter((_, itemIndex) => itemIndex !== index));
-                  setWaveform(null);
-                }}>×</button>
-              </span>
-            ))}
-          </div>
+          <details className="timing-stimulus-details">
+            <summary>Show scheduled changes</summary>
+            <div className="timing-stimulus-list" aria-label="Scheduled input changes">
+              {Array.from(new Set(stimulus.map((item) => item.t))).map((t) => {
+                const group = stimulus.filter((item) => item.t === t);
+                return (
+                  <span className="timing-stimulus-chip" key={t}>
+                    t={t}: {group.map((item) => `${item.net}=${item.value}`).join(' ')}
+                    <button aria-label={`Remove input changes at tick ${t}`} onClick={() => {
+                      setStimulus(stimulus.filter((item) => item.t !== t));
+                      setWaveform(null);
+                    }}>×</button>
+                  </span>
+                );
+              })}
+            </div>
+          </details>
         )}
         {internalCount > 0 && (
           <div className="dp-note timing-internal">
